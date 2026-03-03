@@ -11,7 +11,7 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 MODEL = "gemini-2.5-flash-native-audio-latest"
 
 class GeminiLiveClient:
-    def __init__(self, system_prompt: str, on_text: callable, on_audio: callable, on_user_text: callable = None, on_reasoning: callable = None):
+    def __init__(self, system_prompt: str, on_text: callable, on_audio: callable, on_user_text: callable = None, on_reasoning: callable = None, on_grounding: callable = None):
         self.system_prompt = system_prompt
         self.on_text = on_text
         self.on_audio = on_audio
@@ -20,6 +20,8 @@ class GeminiLiveClient:
         self.session = None
         self.running = False
         self._task = None
+        self.on_grounding = on_grounding
+
 
     async def connect(self):
         config = types.LiveConnectConfig(
@@ -27,6 +29,9 @@ class GeminiLiveClient:
             system_instruction=self.system_prompt,
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),
+            tools=[
+                types.Tool(google_search=types.GoogleSearch())
+            ],
             
         )
         self._context = client.aio.live.connect(model=MODEL, config=config)
@@ -62,21 +67,30 @@ class GeminiLiveClient:
                             if part.inline_data and "audio" in part.inline_data.mime_type:
                                 # Flush user transcript when agent starts responding
                                 if user_transcript_buffer.strip() and self.on_user_text:
-                                    await self.on_user_text(user_transcript_buffer.strip())
+                                    await self.on_user_text(user_transcript_buffer.strip(), partial=False)
                                     user_transcript_buffer = ""
                                 audio_b64 = base64.b64encode(part.inline_data.data).decode()
                                 await self.on_audio(audio_b64)
                     if sc.input_transcription:
-                        user_transcript_buffer += sc.input_transcription.text or ""
+                        chunk = sc.input_transcription.text or ""
+                        if chunk:
+                            user_transcript_buffer += chunk
+                            if self.on_user_text:
+                                await self.on_user_text(chunk, partial=True)
                     if sc.output_transcription:
-                        agent_transcript_buffer += sc.output_transcription.text or ""
+                        chunk = sc.output_transcription.text or ""
+                        if chunk:
+                            agent_transcript_buffer += chunk
+                            await self.on_text(chunk, partial=True)
                     if sc.turn_complete:
                         if agent_transcript_buffer.strip():
-                            await self.on_text(agent_transcript_buffer.strip())
+                            await self.on_text(agent_transcript_buffer.strip(), partial=False)
                             agent_transcript_buffer = ""
                         if user_transcript_buffer.strip() and self.on_user_text:
-                            await self.on_user_text(user_transcript_buffer.strip())
+                            await self.on_user_text(user_transcript_buffer.strip(), partial=False)
                             user_transcript_buffer = ""
+                    if sc.grounding_metadata and self.on_grounding:
+                        await self.on_grounding(sc.grounding_metadata)
         except Exception as e:
             print(f"Listen error: {e}")
             self.running = False

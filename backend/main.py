@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from gemini_client import GeminiLiveClient
 from session_state import SessionState
 from prompts import build_system_prompt
+from claim_tracker import classify_turn
+
 
 load_dotenv()
 
@@ -51,16 +53,32 @@ async def start_session(sid, data):
     system_prompt = build_system_prompt(claim)
 
     # Define callbacks that emit back to this socket
-    async def on_text(text):
-        state.add_turn('agent', text)
-        await sio.emit('transcript', {'speaker': 'agent', 'text': text}, to=sid)
-
     async def on_audio(audio_b64):
         await sio.emit('agent_audio', audio_b64, to=sid)
 
-    async def on_user_text(text):
-        state.add_turn('user', text)
-        await sio.emit('transcript', {'speaker': 'user', 'text': text}, to=sid)
+    async def on_text(text, partial=False):
+        if partial:
+            await sio.emit('transcript_partial', {'speaker': 'agent', 'text': text}, to=sid)
+        else:
+            state.add_turn('agent', text)
+            await sio.emit('transcript', {'speaker': 'agent', 'text': text}, to=sid)
+
+    async def on_user_text(text, partial=False):
+        if partial:
+            await sio.emit('transcript_partial', {'speaker': 'user', 'text': text}, to=sid)
+        else:
+            state.add_turn('user', text)
+            await sio.emit('transcript', {'speaker': 'user', 'text': text}, to=sid)
+            # Fire claim classification in background (don't await — non-blocking)
+            async def on_claim_result(result):
+                state.add_claim_event(text, result)
+                await sio.emit('claim_update', result, to=sid)
+            asyncio.create_task(classify_turn(
+                original_claim=state.user_claim,
+                context=state.get_recent_context(n=6),
+                user_turn=text,
+                on_result=on_claim_result
+            ))
 
     async def on_reasoning(text):
         await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)   

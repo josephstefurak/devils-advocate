@@ -8,6 +8,8 @@ export default function App() {
   const [transcript, setTranscript] = useState([])   // { speaker, text }[]
   const [claim, setClaim] = useState('')
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false)
+  const [partials, setPartials] = useState({})        // { speaker: accumulated_text }
+  const [claims, setClaims] = useState([]) // { classification, summary, strength }[]
 
   const socketRef = useRef(null)
   const mediaRecorderRef = useRef(null)
@@ -33,6 +35,11 @@ export default function App() {
 
     socketRef.current.on('transcript', ({ speaker, text }) => {
       setTranscript(prev => [...prev, { speaker, text }])
+      setPartials(prev => ({ ...prev, [speaker]: '' }))
+    })
+
+    socketRef.current.on('transcript_partial', ({ speaker, text }) => {
+      setPartials(prev => ({ ...prev, [speaker]: (prev[speaker] || '') + text }))
     })
 
     socketRef.current.on('agent_audio', (audioData) => {
@@ -45,6 +52,10 @@ export default function App() {
       if (!val) {
         nextAudioTimeRef.current = 0
       }
+    })
+
+    socketRef.current.on('claim_update', (result) => {
+      setClaims(prev => [...prev, result])
     })
 
 
@@ -73,6 +84,7 @@ export default function App() {
     await audioContextRef.current.resume()
     setStatus('connecting')
     setTranscript([])
+    setPartials({})
     connectSocket()
     socketRef.current.emit('start_session', { claim })
   }
@@ -203,12 +215,14 @@ export default function App() {
     isAgentSpeakingRef.current = true
     setIsAgentSpeaking(true)
 
-    const response = await fetch(`data:application/octet-stream;base64,${base64Audio}`)
-    const arrayBuffer = await response.arrayBuffer()
+    // Direct decode — avoids fetch/blob corruption
+    const binary = atob(base64Audio)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
 
-    const samples = arrayBuffer.byteLength / 2
+    const samples = bytes.length / 2
     const float32 = new Float32Array(samples)
-    const view = new DataView(arrayBuffer)
+    const view = new DataView(bytes.buffer)
     for (let i = 0; i < samples; i++) {
       float32[i] = view.getInt16(i * 2, true) / 32768.0
     }
@@ -223,7 +237,6 @@ export default function App() {
     source.start(startTime)
     nextAudioTimeRef.current = startTime + buffer.duration
 
-    // Wait for this chunk to finish before processing next
     await new Promise(resolve => {
       source.onended = resolve
       setTimeout(resolve, (buffer.duration + 0.1) * 1000)
@@ -295,6 +308,48 @@ export default function App() {
             {isAgentSpeaking && (
               <p style={{ color: '#e63946', fontStyle: 'italic' }}>Agent is speaking...</p>
             )}
+            {/* ── Argument Tracker ── */}
+            {claims.length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <h3 style={{
+                  fontSize: 12, color: '#555', textTransform: 'uppercase',
+                  letterSpacing: 1, marginBottom: 8
+                }}>
+                  Argument Tracker
+                </h3>
+                {claims.slice(-5).map((c, i) => (
+                  <div key={i} style={{
+                    padding: '8px 12px', marginBottom: 6, borderRadius: 6,
+                    background: c.classification === 'DEFENDED' ? '#052e16'
+                      : c.classification === 'CONCEDED' ? '#2d1010'
+                        : '#1a1a2e',
+                    borderLeft: `3px solid ${c.classification === 'DEFENDED' ? '#4ade80'
+                      : c.classification === 'CONCEDED' ? '#e63946'
+                        : '#60a5fa'}`
+                  }}>
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      alignItems: 'center', marginBottom: 2
+                    }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                        color: c.classification === 'DEFENDED' ? '#4ade80'
+                          : c.classification === 'CONCEDED' ? '#e63946'
+                            : '#60a5fa'
+                      }}>
+                        {c.classification}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#888' }}>
+                        Strength: {c.strength}/10
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: '#aaa', lineHeight: 1.4 }}>
+                      {c.summary}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
             <button
               onClick={endDebate}
               style={{
@@ -336,31 +391,50 @@ export default function App() {
         <h2 style={{ fontSize: 14, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
           Transcript
         </h2>
+        <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {transcript.length === 0 ? (
+          {transcript.length === 0 && Object.values(partials).every(v => !v) ? (
             <p style={{ color: '#444', fontSize: 14 }}>Transcript will appear here...</p>
           ) : (
-            transcript.map((t, i) => (
-              <div key={i} style={{ marginBottom: 16 }}>
-                <span style={{
-                  color: t.speaker === 'agent' ? '#e63946'
-                    : t.speaker === 'user' ? '#4ade80'
-                      : '#555',
-                  fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5
-                }}>
-                  {t.speaker === 'agent' ? "Devil's Advocate"
-                    : t.speaker === 'user' ? 'You'
-                      : '🧠 Reasoning'}
-                </span>
-                <p style={{
-                  margin: '4px 0 0', lineHeight: 1.6, fontSize: 14,
-                  color: t.speaker === 'reasoning' ? '#555' : '#ccc',
-                  fontStyle: t.speaker === 'reasoning' ? 'italic' : 'normal'
-                }}>
-                  {t.text}
-                </p>
-              </div>
-            ))
+            <>
+              {transcript.map((t, i) => (
+                <div key={i} style={{ marginBottom: 16 }}>
+                  <span style={{
+                    color: t.speaker === 'agent' ? '#e63946'
+                      : t.speaker === 'user' ? '#4ade80'
+                        : '#555',
+                    fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5
+                  }}>
+                    {t.speaker === 'agent' ? "Devil's Advocate"
+                      : t.speaker === 'user' ? 'You'
+                        : '🧠 Reasoning'}
+                  </span>
+                  <p style={{
+                    margin: '4px 0 0', lineHeight: 1.6, fontSize: 14,
+                    color: t.speaker === 'reasoning' ? '#555' : '#ccc',
+                    fontStyle: t.speaker === 'reasoning' ? 'italic' : 'normal'
+                  }}>
+                    {t.text}
+                  </p>
+                </div>
+              ))}
+              {/* Live partials — dimmed with cursor */}
+              {Object.entries(partials).map(([speaker, text]) =>
+                text ? (
+                  <div key={`partial-${speaker}`} style={{ marginBottom: 16, opacity: 0.55 }}>
+                    <span style={{
+                      color: speaker === 'agent' ? '#e63946' : '#4ade80',
+                      fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5
+                    }}>
+                      {speaker === 'agent' ? "Devil's Advocate" : 'You'}
+                    </span>
+                    <p style={{ margin: '4px 0 0', lineHeight: 1.6, fontSize: 14, color: '#ccc' }}>
+                      {text}<span style={{ animation: 'blink 1s step-end infinite' }}>▍</span>
+                    </p>
+                  </div>
+                ) : null
+              )}
+            </>
           )}
           <div ref={transcriptEndRef} />
         </div>
