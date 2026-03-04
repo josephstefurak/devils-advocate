@@ -11,6 +11,10 @@ from session_state import SessionState
 from prompts import build_system_prompt, build_rag_context
 from claim_tracker import classify_turn
 from rag import rag
+from report import generate_report
+
+from validation import sanitize_claim, validate_audio_chunk, validate_participant_id
+from rate_limiter import limiter
 
 
 load_dotenv()
@@ -37,11 +41,16 @@ last_retrieval = {}
 # ── Socket events ──────────────────────────────────────────────────
 @sio.event
 async def connect(sid, environ):
+    ip = environ.get('HTTP_X_FORWARDED_FOR', environ.get('REMOTE_ADDR', 'unknown'))
+    if not limiter.check_connection(ip):
+        print(f"Rate limit: too many connections from {ip}")
+        return False  # returning False rejects the connection
     print(f"Client connected: {sid}")
 
 @sio.event
 async def disconnect(sid, reason=None):
     print(f"Client disconnected: {sid}, reason: {reason}")
+    limiter.clear_sid(sid)
     session = sessions.pop(sid, None)
     if session:
         rag.delete_participant(session['participant_id'])  # add this
@@ -49,6 +58,19 @@ async def disconnect(sid, reason=None):
 
 @sio.event
 async def start_session(sid, data):
+
+    if not limiter.check_session_start(sid):
+        await sio.emit('error', {'message': 'Too many sessions started. Please wait.'}, to=sid)
+        return
+
+    try:
+        claim = sanitize_claim(data.get('claim', ''))
+        participant_id = validate_participant_id(data.get('participant_id', sid))
+    except ValueError as e:
+        await sio.emit('error', {'message': str(e)}, to=sid)
+        return
+    
+
     claim = data.get('claim', '')
     print(f"Starting session for {sid}, claim: {claim}")
     participant_id = data.get("participant_id", sid)
@@ -89,13 +111,17 @@ async def start_session(sid, data):
 
     async def on_reasoning(text):
         await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)   
+    
+    async def on_interrupted():
+        await sio.emit('agent_interrupted', to=sid)
 
     gemini = GeminiLiveClient(
         system_prompt=system_prompt,
         on_text=on_text,
         on_audio=on_audio,
         on_user_text=on_user_text,
-        on_reasoning=on_reasoning
+        on_reasoning=on_reasoning,
+        on_interrupted=on_interrupted
     )
 
     await gemini.connect()
@@ -117,6 +143,15 @@ async def start_session(sid, data):
 async def audio_chunk(sid, data):
     if sid not in sessions:
         return
+    
+    if not limiter.check_audio_chunk(sid):
+        return  # silently drop — don't emit error on every chunk
+
+    try:
+        audio_bytes = validate_audio_chunk(data)
+    except ValueError:
+        return  # silently drop bad chunks
+
     session = sessions[sid]
     gemini = session['gemini']
     if not gemini.running:
@@ -133,7 +168,7 @@ async def audio_chunk(sid, data):
             msg = build_rag_context(rag_context)
             await gemini.send_context(msg)
 
-    await gemini.send_audio(bytes(data))
+    await gemini.send_audio(audio_bytes)
 
 @sio.event
 async def end_session(sid):
@@ -143,6 +178,11 @@ async def end_session(sid):
     rag.delete_participant(session['participant_id'])  # add this
     await session['gemini'].close()
     state = session['state']
+    report = await generate_report(state)
+    if report:
+        await sio.emit('debate_report', report, to=sid)
+
+    await sio.disconnect(sid)  # disconnect AFTER report is sent
     print(f"Session ended. Turns: {len(state.turns)}")
 
 # ── Run ────────────────────────────────────────────────────────────

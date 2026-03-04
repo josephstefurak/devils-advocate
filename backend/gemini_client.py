@@ -11,7 +11,7 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 MODEL = "gemini-2.5-flash-native-audio-latest"
 
 class GeminiLiveClient:
-    def __init__(self, system_prompt: str, on_text: callable, on_audio: callable, on_user_text: callable = None, on_reasoning: callable = None, on_grounding: callable = None):
+    def __init__(self, system_prompt: str, on_text: callable, on_audio: callable, on_user_text: callable = None, on_reasoning: callable = None, on_grounding: callable = None, on_interrupted: callable = None):
         self.system_prompt = system_prompt
         self.on_text = on_text
         self.on_audio = on_audio
@@ -21,6 +21,7 @@ class GeminiLiveClient:
         self.running = False
         self._task = None
         self.on_grounding = on_grounding
+        self.on_interrupted = on_interrupted
 
 
     async def connect(self):
@@ -91,6 +92,14 @@ class GeminiLiveClient:
                             user_transcript_buffer = ""
                     if sc.grounding_metadata and self.on_grounding:
                         await self.on_grounding(sc.grounding_metadata)
+
+
+                    if sc.interrupted:
+                        agent_transcript_buffer = ""
+                        user_transcript_buffer = ""
+                        if self.on_interrupted:
+                            await self.on_interrupted()
+
         except Exception as e:
             print(f"Listen error: {e}")
             self.running = False
