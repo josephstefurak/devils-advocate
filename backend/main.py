@@ -24,12 +24,20 @@ load_dotenv()
 app = FastAPI()
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins='*'
+    cors_allowed_origins=[
+        'https://devils-advocate-ec48b.web.app',
+        'https://devils-advocate-ec48b.firebaseapp.com',
+        'http://localhost:5173'
+    ]
 )
 socket_app = socketio.ASGIApp(sio, app)
 
 app.add_middleware(CORSMiddleware,
-    allow_origins=["*"],
+    cors_allowed_origins=[
+        'https://devils-advocate-ec48b.web.app',
+        'https://devils-advocate-ec48b.firebaseapp.com',
+        'http://localhost:5173'
+    ],
     allow_methods=["*"],
     allow_headers=["*"]
 )

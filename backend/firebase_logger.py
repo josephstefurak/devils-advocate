@@ -4,7 +4,9 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # Init once
-cred = credentials.Certificate(os.getenv("FIREBASE_KEY_PATH", "./firebase_key.json"))
+key_path = os.getenv("FIREBASE_KEY_PATH", "/secrets/firebase_key.json")
+cred = credentials.Certificate(key_path)
+
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 

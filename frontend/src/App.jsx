@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { io } from 'socket.io-client'
 
-const BACKEND_URL = 'http://localhost:8000'
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
 
 export default function App() {
   const [status, setStatus] = useState('idle')       // idle | connecting | debating | ended
