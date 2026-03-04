@@ -8,8 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from gemini_client import GeminiLiveClient
 from session_state import SessionState
-from prompts import build_system_prompt
+from prompts import build_system_prompt, build_rag_context
 from claim_tracker import classify_turn
+from rag import rag
 
 
 load_dotenv()
@@ -31,6 +32,7 @@ app.add_middleware(CORSMiddleware,
 # ── Active sessions store ──────────────────────────────────────────
 # { socket_id: { gemini: GeminiLiveClient, state: SessionState } }
 sessions = {}
+last_retrieval = {}
 
 # ── Socket events ──────────────────────────────────────────────────
 @sio.event
@@ -42,12 +44,17 @@ async def disconnect(sid, reason=None):
     print(f"Client disconnected: {sid}, reason: {reason}")
     session = sessions.pop(sid, None)
     if session:
+        rag.delete_participant(session['participant_id'])  # add this
         await session['gemini'].close()
 
 @sio.event
 async def start_session(sid, data):
     claim = data.get('claim', '')
     print(f"Starting session for {sid}, claim: {claim}")
+    participant_id = data.get("participant_id", sid)
+
+    
+
 
     state = SessionState(user_claim=claim)
     system_prompt = build_system_prompt(claim)
@@ -100,17 +107,32 @@ async def start_session(sid, data):
         turns=[{"role": "user", "parts": [{"text": claim}]}],
         turn_complete=True
     )
-    sessions[sid] = {'gemini': gemini, 'state': state}
+
+    rag.ingest_documents(participant_id, texts=[], metadatas=[])
+
+    sessions[sid] = {'gemini': gemini, 'state': state, 'participant_id': participant_id}
     await sio.emit('session_ready', to=sid)
 
 @sio.event
 async def audio_chunk(sid, data):
     if sid not in sessions:
         return
-    gemini = sessions[sid]['gemini']
+    session = sessions[sid]
+    gemini = session['gemini']
     if not gemini.running:
         print(f"Dropping chunk — gemini not running for {sid}")
         return
+
+    # Inject RAG context once per new user turn
+    current_turn = session['state'].turn_count
+    if last_retrieval.get(sid) != current_turn and current_turn > 0:
+        last_retrieval[sid] = current_turn
+        recent = session['state'].get_recent_context(n=2)
+        rag_context = rag.retrieve(session['participant_id'], recent, n_results=3)
+        if rag_context:
+            msg = build_rag_context(rag_context)
+            await gemini.send_context(msg)
+
     await gemini.send_audio(bytes(data))
 
 @sio.event
@@ -118,6 +140,7 @@ async def end_session(sid):
     session = sessions.pop(sid, None)
     if session is None:
         return
+    rag.delete_participant(session['participant_id'])  # add this
     await session['gemini'].close()
     state = session['state']
     print(f"Session ended. Turns: {len(state.turns)}")

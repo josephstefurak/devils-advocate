@@ -1,0 +1,50 @@
+STARTUP FAILURES — DEBATE KNOWLEDGE BASE
+=========================================
+
+FAILURE RATE STATISTICS
+- 90% of startups fail. 10% fail within the first year. ~70% fail between years 2–5.
+- CB Insights (2023): 38% of startups fail due to running out of cash or failing to raise new capital.
+- CB Insights top failure reasons: no market need (35%), ran out of cash (38%), wrong team (14%), outcompeted (20%), pricing/cost issues (15%), poor product (8%), no business model (17%).
+- Startup Genome Report: 74% of high-growth internet startups fail due to premature scaling.
+
+PREMATURE SCALING
+- Premature scaling = growing headcount, spend, or infrastructure before product-market fit is confirmed.
+- Webvan raised $375M and expanded to 8 cities before proving unit economics in a single market. Bankrupt in 2001 after burning $800M total.
+- Color raised $41M pre-launch in 2011. Hired 70 employees before shipping. Product failed; company sold for parts at $7M.
+- Quibi raised $1.75B, spent $1B on content before launch, and shut down 6 months after launch in 2020 with 500K subscribers against a target of 7.4M.
+- Signal: hiring faster than revenue growth, expanding geographically before unit economics are positive, spending on brand before proving retention.
+
+CAC / LTV PROBLEMS
+- A healthy SaaS LTV:CAC ratio is 3:1 or higher. Below 1:1 means the company literally loses money acquiring every customer.
+- CAC payback period over 18 months is a warning sign in SaaS; over 24 months is near-fatal without deep-pocketed investors.
+- D2C brands averaged $87 CAC in 2023 (Shopify ecosystem data), up from $9 in 2013 — a 10x increase driven by iOS 14 ATT changes and Meta CPM inflation.
+- Companies that rely on paid acquisition and have LTV:CAC below 2:1 at Series A rarely survive to Series C without fundamental model changes.
+- Fab.com: burned $200M in 18 months on customer acquisition. CAC hit $94 per customer while AOV was $80. Sold for $15M in 2015 after raising $336M.
+
+NO PRODUCT-MARKET FIT / WRONG MARKET
+- Only 40% of product features shipped by the average startup are ever used more than once by users (Pendo, 2023).
+- YC partners cite "building something nobody wants" as the #1 avoidable failure mode.
+- Friendster had product-market fit but lost it to MySpace due to infrastructure failures — PMF can be lost, not just missed.
+- Rdio had a superior product to Spotify by most reviews. Lost due to distribution and label relationships, not product quality.
+- Segway raised $100M and projected 10,000 units/day sales. Sold ~30,000 units total in its first 6 years.
+
+WRONG TIMING
+- Google Glass was released in 2013 — 10 years before AR wearables had consumer acceptance. Re-entering market in 2023 as enterprise product.
+- Pets.com IPO'd in 2000 with $82M raised. Online pet food delivery was a good idea — Chewy sold for $3.35B in 2017. Timing and unit economics killed Pets.com, not the concept.
+- Electric vehicles: Better Place raised $900M for EV battery swapping in 2008, bankrupt by 2013. Tesla was also early — the difference was execution and staying power.
+
+RUNWAY MISMANAGEMENT
+- The median startup that fails had less than 3 months of runway at the time of failure (CB Insights).
+- Rule of thumb: raising at 12 months of runway is reactive; 18 months is healthy; 6 months is crisis.
+- Companies that extend runway by cutting sales and marketing first accelerate failure — they reduce the only function generating future revenue.
+- Theranos is the extreme case: raised $945M, never had working technology, maintained runway through fraud for 12 years.
+
+HIRING MISTAKES
+- First 10 hires determine company culture more than any written value statement.
+- Hiring ahead of revenue in sales (pre-PMF) is a top-5 burn accelerator at seed/Series A.
+- WeWork: headcount grew from 500 to 12,500 between 2016 and 2019 while unit economics deteriorated. At IPO attempt, losing $219K per hour.
+
+PIVOTING TOO LATE
+- Instagram pivoted from Burbn (a check-in app) within 8 weeks of identifying what users actually wanted. Most founders take 18+ months to accept a pivot is needed.
+- The longer a team waits to pivot, the more entrenched they become in the original thesis — sunk cost fallacy kills companies.
+- Pivoting too many times is also fatal: multiple major pivots burn team trust and investor confidence simultaneously.

@@ -94,6 +94,17 @@ class GeminiLiveClient:
         except Exception as e:
             print(f"Listen error: {e}")
             self.running = False
+
+    async def send_context(self, context_text: str):
+        if not self.session or not self.running or not context_text.strip():
+            return
+        try:
+            await self.session.send_client_content(
+                turns=[{"role": "user", "parts": [{"text": context_text}]}],
+                turn_complete=False
+            )
+        except Exception as e:
+            print(f"Context injection error: {e}")
             
     async def close(self):
         self.running = False

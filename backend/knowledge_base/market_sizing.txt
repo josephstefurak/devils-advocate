@@ -1,0 +1,48 @@
+MARKET SIZING — DEBATE KNOWLEDGE BASE
+======================================
+
+THE TAM/SAM/SOM FRAMEWORK AND HOW FOUNDERS ABUSE IT
+- TAM = Total Addressable Market. SAM = Serviceable Addressable Market. SOM = Serviceable Obtainable Market.
+- Most founders present TAM as SOM. The global healthcare market is $10T. That does not mean a healthcare app can capture $1B.
+- Top-down sizing ("The market is $50B, we capture 1%") is rejected by experienced VCs as analytically meaningless. 1% of $50B tells you nothing about whether 1% is achievable.
+- Bottom-up sizing: number of target customers × realistic price × realistic conversion rate. This is the only sizing methodology that holds up under scrutiny.
+- Common error: confusing the industry's revenue with the addressable slice. "Digital advertising is $600B" ≠ your ad-tech startup's addressable market.
+
+THE 1% FALLACY
+- "If we capture just 1% of the market, we'll be massive" is the single most ridiculed line in startup pitches.
+- 1% of a large market implies you've already solved distribution, differentiation, and sales — the hardest parts of building a company.
+- No startup plans to capture 1% and stops there. The statement reveals the founder hasn't thought through go-to-market at all.
+- 1% of US restaurant market ($1T) = $10B revenue. No single restaurant software company has crossed $2B ARR. Toast is ~$1.1B ARR after 12 years.
+
+PENETRATION RATE BENCHMARKS BY CATEGORY
+- B2B SaaS: Top quartile companies achieve 5–15% penetration of their SAM within 5 years. Median is 2–5%.
+- Consumer apps: Achieving 1% of a target demographic in year 1 is strong. Viral consumer apps (TikTok, Duolingo) are extreme outliers.
+- Marketplace: Getting to 10% market share in a two-sided marketplace within 3 years is considered exceptional.
+- Healthcare SaaS: Sales cycles of 6–18 months mean year-1 penetration is typically <1% of SAM even with strong product.
+- Enterprise software: Average enterprise deal cycle is 6–9 months. Even with 10 SDRs, year-1 new logo acquisition is 20–80 accounts.
+
+FAMOUS MARKET SIZE MISCALCULATIONS
+- WeWork claimed a $3T total addressable market (all commercial real estate globally). Their actual SOM — flexible workspace — was ~$26B globally in 2019.
+- Juicero raised $120M claiming to address a $100B+ wellness market. Addressable market for $400 wi-fi-connected juice presses was functionally zero.
+- Jawbone claimed the wearables TAM was $30B+ by 2018. They filed for liquidation in 2017 after raising $930M. The real market consolidated around Fitbit/Apple.
+- Theranos claimed to address $76B in US lab testing. Their actual addressable market — finger-prick tests replacing venous draws — was a narrow subset requiring regulatory approval they never received.
+
+HOW VCS STRESS-TEST MARKET CLAIMS
+- Benchmark test: Can you name 3 direct competitors generating meaningful revenue? If not, the market may not exist yet.
+- Size-by-analogy: Is there a comparable market in another geography or vertical that proves the model?
+- Bottom-up stress test: Take your ARPU, apply realistic churn, apply realistic sales conversion rate. What headcount is required to hit your year-3 revenue projection?
+- Market timing test: Why is this market the right size NOW, not in 5 years or 5 years ago?
+
+GEOGRAPHIC MARKET TRAPS
+- "US market" assumptions applied to global TAM, or vice versa.
+- Regulatory fragmentation means EU, US, APAC often must be treated as separate markets with separate go-to-market costs.
+- Founders routinely cite global market figures then describe a US-only launch strategy — the numbers don't connect.
+
+MARKET GROWTH RATE TRAPS
+- Projecting a current-year market size forward at CAGR without accounting for competitive intensity increasing as market grows.
+- Markets growing at >30% CAGR attract the most well-funded competition, compressing margins fastest.
+- A market growing from $2B to $20B over 10 years is attractive — but the window to establish leadership typically closes by year 3–4 when incumbents mobilize.
+
+ADJACENT MARKET CONFUSION
+- Founders frequently cite adjacent markets as their TAM. "HR software and payroll is $40B" does not validate a niche employee wellness app.
+- The relevant question is: what does a customer stop paying for when they pay you? That contract value is your real addressable unit.
