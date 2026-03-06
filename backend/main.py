@@ -11,7 +11,7 @@ from session_state import SessionState
 from prompts import build_system_prompt, build_rag_context
 from claim_tracker import classify_turn
 from rag import rag
-from report import generate_report
+from report import generate_report, run_judge
 
 from validation import sanitize_claim, validate_audio_chunk, validate_participant_id
 from rate_limiter import limiter
@@ -74,18 +74,15 @@ async def start_session(sid, data):
 
     try:
         claim = sanitize_claim(data.get('claim', ''))
-        participant_id = validate_participant_id(data.get('participant_id', sid))
     except ValueError as e:
         await sio.emit('error', {'message': str(e)}, to=sid)
         return
-    
 
-    claim = data.get('claim', '')
-    print(f"Starting session for {sid}, claim: {claim}")
-    participant_id = data.get("participant_id", sid)
+    uid = data.get('uid', sid)
+    is_anonymous = data.get('isAnonymous', True)
+    participant_id = uid  # uid is already validated by Firebase on the frontend
 
-    
-
+    print(f"Starting session for {sid}, uid: {uid}, anonymous: {is_anonymous}, claim: {claim}")
 
     state = SessionState(user_claim=claim)
     system_prompt = build_system_prompt(claim)
@@ -95,7 +92,6 @@ async def start_session(sid, data):
         user_claim=claim
     )
 
-    # Define callbacks that emit back to this socket
     async def on_audio(audio_b64):
         await sio.emit('agent_audio', audio_b64, to=sid)
 
@@ -114,7 +110,6 @@ async def start_session(sid, data):
             state.add_turn('user', text)
             await sio.emit('transcript', {'speaker': 'user', 'text': text}, to=sid)
             logger.log_turn('user', text, state.turn_count)
-            # Fire claim classification in background (don't await — non-blocking)
             async def on_claim_result(result):
                 state.add_claim_event(text, result)
                 await sio.emit('claim_update', result, to=sid)
@@ -127,11 +122,11 @@ async def start_session(sid, data):
             ))
 
     async def on_reasoning(text):
-        await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)   
-    
+        await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)
+
     async def on_interrupted():
         await sio.emit('agent_interrupted', to=sid)
-        logger.log_interruption() 
+        logger.log_interruption()
 
     gemini = GeminiLiveClient(
         system_prompt=system_prompt,
@@ -144,7 +139,6 @@ async def start_session(sid, data):
 
     await gemini.connect()
 
-    # Emit user's initial claim into transcript before session starts
     await sio.emit('transcript', {'speaker': 'user', 'text': claim}, to=sid)
 
     await gemini.session.send_client_content(
@@ -154,7 +148,14 @@ async def start_session(sid, data):
 
     rag.ingest_documents(participant_id, texts=[], metadatas=[])
 
-    sessions[sid] = {'gemini': gemini, 'state': state, 'participant_id': participant_id, 'logger': logger, 'consent': False}
+    sessions[sid] = {
+        'gemini': gemini,
+        'state': state,
+        'participant_id': participant_id,
+        'is_anonymous': is_anonymous,
+        'logger': logger,
+        'consent': True,  # default to True until user explicitly updates it
+    }
     await sio.emit('session_ready', to=sid)
 
 @sio.event
@@ -193,24 +194,34 @@ async def end_session(sid):
     session = sessions.pop(sid, None)
     if session is None:
         return
-    rag.delete_participant(session['participant_id'])  # add this
+
+    rag.delete_participant(session['participant_id'])
     await session['gemini'].close()
     state = session['state']
-    report = await generate_report(state)
+
+    # Run judge and report concurrently
+    judge_result, report = await asyncio.gather(
+        run_judge(state),
+        generate_report(state)
+    )
+
+    if judge_result:
+        await sio.emit('judge_result', judge_result, to=sid)
+        session['logger'].log_judge(judge_result)
+
     if report:
         await sio.emit('debate_report', report, to=sid)
-        session['logger'].log_report(report) 
-    
-    session['logger'].finalize(consent_given=session['consent'])
+        session['logger'].log_report(report)
 
-    await sio.disconnect(sid)  # disconnect AFTER report is sent
+    session['logger'].finalize(consent_given=session['consent'])
+    await sio.disconnect(sid)
     print(f"Session ended. Turns: {len(state.turns)}")
 
 @sio.event
 async def set_consent(sid, data):
     if sid not in sessions:
         return
-    sessions[sid]['consent'] = data.get('consent', False)
+    sessions[sid]['consent'] = data.get('consent', True)
     print(f"Consent updated for {sid}: {sessions[sid]['consent']}")
 
 # ── Run ────────────────────────────────────────────────────────────

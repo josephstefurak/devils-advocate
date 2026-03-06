@@ -48,6 +48,11 @@ class SessionLogger:
             f"metrics.total_turns": firestore.Increment(1),
             f"metrics.{'user' if speaker == 'user' else 'agent'}_turns": firestore.Increment(1),
         })
+    
+    def log_judge(self, result: dict):
+        self.ref.update({
+            "judge_result": result
+        })
 
     def log_claim_event(self, event: dict):
         self.ref.update({
