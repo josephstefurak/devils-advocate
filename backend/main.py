@@ -82,8 +82,8 @@ async def start_session(sid, data):
     except ValueError as e:
         await sio.emit('error', {'message': str(e)}, to=sid)
         return
-    
 
+    await sio.emit('session_status', {'step': 'Authenticating...'}, to=sid)
     id_token = data.get('idToken', '')
     try:
         decoded = fb_auth.verify_id_token(id_token)
@@ -92,14 +92,14 @@ async def start_session(sid, data):
     except Exception:
         await sio.emit('error', {'message': 'Authentication failed.'}, to=sid)
         return
-    #participant_id = uid  # uid is already validated by Firebase on the frontend
+
     try:
         participant_id = validate_participant_id(uid)
     except ValueError as e:
         await sio.emit('error', {'message': 'Invalid session identity.'}, to=sid)
         return
-    document_paths = data.get('documentPaths', [])
 
+    document_paths = data.get('documentPaths', [])
     print(f"Starting session for {sid}, uid: {uid}, anonymous: {is_anonymous}, claim: {claim}")
 
     state = SessionState(user_claim=claim)
@@ -148,6 +148,18 @@ async def start_session(sid, data):
         await sio.emit('agent_interrupted', to=sid)
         logger.log_interruption()
 
+    # 1. Load and embed documents first so RAG is ready before agent speaks
+    await sio.emit('session_status', {'step': 'Loading your documents...'}, to=sid)
+    doc_texts, doc_metas = [], []
+    if document_paths:
+        doc_texts, doc_metas = await asyncio.get_event_loop().run_in_executor(
+            None, download_and_extract, document_paths
+        )
+        print(f"[Session] Ingesting {len(doc_texts)} user document chunks for {uid}")
+    rag.ingest_documents(participant_id, texts=doc_texts, metadatas=doc_metas)
+
+    # 2. Connect Gemini
+    await sio.emit('session_status', {'step': 'Connecting to debate engine...'}, to=sid)
     gemini = GeminiLiveClient(
         system_prompt=system_prompt,
         on_text=on_text,
@@ -156,25 +168,21 @@ async def start_session(sid, data):
         on_reasoning=on_reasoning,
         on_interrupted=on_interrupted
     )
-
     await gemini.connect()
 
-    await sio.emit('transcript', {'speaker': 'user', 'text': claim}, to=sid)
+    # 3. Retrieve RAG context using the claim as the seed query and inject
+    #    before the first turn so the opening challenge can reference documents
+    await sio.emit('session_status', {'step': 'Preparing your opponent...'}, to=sid)
+    rag_context = rag.retrieve(participant_id, claim, n_results=5)
+    if rag_context:
+        await gemini.send_context(build_rag_context(rag_context))
 
+    # 4. Show claim in transcript and send to agent — now fully context-aware
+    await sio.emit('transcript', {'speaker': 'user', 'text': claim}, to=sid)
     await gemini.session.send_client_content(
         turns=[{"role": "user", "parts": [{"text": claim}]}],
         turn_complete=True
     )
-
-    # Download and embed user's uploaded documents if any
-    doc_texts, doc_metas = [], []
-    if document_paths:
-        doc_texts, doc_metas = await asyncio.get_event_loop().run_in_executor(
-            None, download_and_extract, document_paths
-        )
-        print(f"[Session] Ingesting {len(doc_texts)} user document chunks for {uid}")
-
-    rag.ingest_documents(participant_id, texts=doc_texts, metadatas=doc_metas)
 
     sessions[sid] = {
         'gemini': gemini,
@@ -184,7 +192,7 @@ async def start_session(sid, data):
         'document_paths': document_paths,
         'logger': logger,
         'started_at': time.time(),
-        'consent': True,  # default to True until user explicitly updates it
+        'consent': True,
     }
     await sio.emit('session_ready', to=sid)
 
