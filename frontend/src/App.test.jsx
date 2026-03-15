@@ -3,22 +3,27 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import App from './App'
 
 describe('Idle state', () => {
-    it('renders the textarea and start button', () => {
+    function getPastLanding() {
         render(<App />)
-        expect(screen.getByPlaceholderText(/describe your business idea/i)).toBeInTheDocument()
+        fireEvent.click(screen.getByText(/pitch your idea/i))
+    }
+
+    it('renders the textarea and start button after landing', () => {
+        getPastLanding()
+        expect(screen.getByPlaceholderText(/describe your.*idea/i)).toBeInTheDocument()
         expect(screen.getByText(/start debate/i)).toBeInTheDocument()
     })
 
-    it('does not allow starting with empty claim', () => {
+    it('does not allow starting with empty claim and no uploads', () => {
         const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => { })
-        render(<App />)
+        getPastLanding()
         fireEvent.click(screen.getByText(/start debate/i))
-        expect(alertMock).toHaveBeenCalledWith(expect.stringMatching(/position/i))
+        expect(alertMock).toHaveBeenCalledWith(expect.stringMatching(/position|upload documents/i))
     })
 
     it('shows guest label for anonymous user', () => {
-        render(<App />)
-        expect(screen.getByText(/signed in as guest/i)).toBeInTheDocument()
+        getPastLanding()
+        expect(screen.getByText(/^Guest$/)).toBeInTheDocument()
     })
 })
 

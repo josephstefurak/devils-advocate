@@ -151,8 +151,8 @@ export default function App() {
 
   async function handleStartDebate() {
     if (!authReady || !user) return alert('Auth not ready yet, try again')
-    if (!claim.trim()) return alert('Enter your position first')
-    await startDebate(claim, user, uploadedFiles)
+    if (!claim.trim() && uploadedFiles.length === 0) return alert('Enter your position or upload documents to get started.')
+    await startDebate(claim.trim() || '', user, uploadedFiles)
   }
   async function handleShare() {
     try {
@@ -329,13 +329,13 @@ export default function App() {
                 </span>
               </h1>
               <p style={{ ...mono, color: colors.textFaint, marginBottom: spacing.xl }}>
-                State your position — the Devil's Advocate will do the rest.
+                State your position or upload documents below — the Devil's Advocate will do the rest.
               </p>
 
               <textarea
                 value={claim}
                 onChange={e => setClaim(e.target.value)}
-                placeholder="Describe your startup idea, business model, or hypothesis..."
+                placeholder="Describe your startup idea, business model, or hypothesis — or upload a pitch deck / business plan below."
                 rows={5}
                 style={{
                   width: '100%', padding: spacing.md,

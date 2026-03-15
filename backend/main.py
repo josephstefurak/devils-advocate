@@ -13,10 +13,11 @@ from claim_tracker import classify_turn
 from rag import rag
 from report import generate_report, run_judge
 
-from validation import sanitize_claim, validate_audio_chunk, validate_participant_id
+from validation import sanitize_claim, validate_audio_chunk, validate_participant_id, MAX_CLAIM_LENGTH
 from rate_limiter import limiter
 from firebase_logger import SessionLogger
 from storage_utils import download_and_extract, delete_user_files
+from summary import summarize_documents
 from firebase_admin import auth as fb_auth
 
 import time
@@ -81,8 +82,13 @@ async def start_session(sid, data):
         await sio.emit('error', {'message': 'Too many sessions started. Please wait.'}, to=sid)
         return
 
+    claim_raw = (data.get('claim') or '').strip()
+    document_paths = data.get('documentPaths', [])
+    if not claim_raw and not document_paths:
+        await sio.emit('error', {'message': 'Enter your position or upload documents to get started.'}, to=sid)
+        return
     try:
-        claim = sanitize_claim(data.get('claim', ''))
+        claim = sanitize_claim(claim_raw) if claim_raw else ''
     except ValueError as e:
         await sio.emit('error', {'message': str(e)}, to=sid)
         return
@@ -103,8 +109,7 @@ async def start_session(sid, data):
         await sio.emit('error', {'message': 'Invalid session identity.'}, to=sid)
         return
 
-    document_paths = data.get('documentPaths', [])
-    print(f"Starting session for {sid}, uid: {uid}, anonymous: {is_anonymous}, claim: {claim}")
+    print(f"Starting session for {sid}, uid: {uid}, anonymous: {is_anonymous}, claim: {claim or '(from documents)'}")
 
     state = SessionState(user_claim=claim)
     system_prompt = build_system_prompt(claim)
@@ -160,6 +165,32 @@ async def start_session(sid, data):
             None, download_and_extract, document_paths
         )
         print(f"[Session] Ingesting {len(doc_texts)} user document chunks for {uid}")
+        # If user didn't type a claim, derive it from the document text
+        if not claim:
+            if not doc_texts:
+                await sio.emit('error', {
+                    'message': 'Could not extract text from your documents. Try adding a short description above or upload different files.'
+                }, to=sid)
+                return
+            try:
+                await sio.emit('session_status', {'step': 'Summarizing your materials...'}, to=sid)
+                claim = await summarize_documents(doc_texts)
+                if len(claim) > MAX_CLAIM_LENGTH:
+                    claim = claim[:MAX_CLAIM_LENGTH - 3].rstrip() + "..."
+            except Exception as e:
+                print(f"[Session] Summary failed: {e}")
+                await sio.emit('error', {
+                    'message': 'Could not summarize your documents. Try adding a short description above.'
+                }, to=sid)
+                return
+            state = SessionState(user_claim=claim)
+            system_prompt = build_system_prompt(claim)
+            logger = SessionLogger(
+                session_id=state.session_id,
+                user_claim=claim,
+                uid=uid,
+                is_anonymous=is_anonymous
+            )
     rag.ingest_documents(participant_id, texts=doc_texts, metadatas=doc_metas)
 
     # 2. Connect Gemini
