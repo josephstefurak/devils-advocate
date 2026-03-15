@@ -16,9 +16,9 @@ class ClaimClassificationResult(BaseModel):
     summary: str = Field(description="One sentence summary of what the user argued")
     strength: int = Field(description="1-10 (10 = very compelling argument, 1 = very weak)")
     reason: str = Field(
-        description="One sentence explaining why the turn was classified as such and the score was assigned"
+        description="One sentence explaining why the turn was classified as such and the score was assigned. Maximum 25 words."
     )
-    suggested_argument: str = Field(description="1-3 sentences on the strongest argument the user could have made to better defend their position in this turn")
+    suggested_argument: str = Field(description="1-3 sentences on the strongest argument the user could have made to better defend their position in this turn. Maximum 85 words.")
 
 
 CLASSIFY_PROMPT = """
@@ -91,10 +91,14 @@ async def classify_turn(
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_json_schema=ClaimClassificationResult.model_json_schema(),
-                max_output_tokens=200,
+                max_output_tokens=1024,
             )
         )
-        result = ClaimClassificationResult.model_validate_json(response.text)
+        text = response.text.strip()
+        if not text:
+            print("Claim tracker: empty response, skipping")
+            return
+        result = ClaimClassificationResult.model_validate_json(text)
         await on_result(result.model_dump())
     except Exception as e:
         print(f"Claim tracker error: {e}")

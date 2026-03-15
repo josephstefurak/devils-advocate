@@ -7,11 +7,11 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # ── Judge structured output ──────────────────────────────────────────────
 class JudgeScores(BaseModel):
-    problem_clarity: float = Field(description="1-10: How clearly did they articulate the problem they're solving?")
-    market_logic: float = Field(description="1-10: How well did they defend market size, TAM, and timing?")
-    execution_risk: float = Field(description="1-10: How convincingly did they address execution and operational challenges?")
-    competitive_awareness: float = Field(description="1-10: How well did they handle questions about competition and differentiation?")
-    internal_coherence: float = Field(description="1-10: Were their arguments consistent and logically sound throughout?")
+    problem_clarity: float = Field(description="1-10: Problem Detail/Unmet Need, Solution Detail, Customer Segment — clarity of the problem, solution, and who has it")
+    market_logic: float = Field(description="1-10: Market, Go to Market — market size, beachhead, TAM, distribution, sales model, CAC/LTV")
+    execution_risk: float = Field(description="1-10: Product Readiness, Traction, Commercialization Pathway, Team, AI (if applicable) — can they execute?")
+    competitive_awareness: float = Field(description="1-10: Competition, Competitive Advantage — knowledge of competitors and ability to differentiate")
+    internal_coherence: float = Field(description="1-10: Were their arguments consistent and logically sound across all themes throughout?")
 
 
 class JudgeResult(BaseModel):
