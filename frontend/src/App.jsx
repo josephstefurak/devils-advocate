@@ -116,7 +116,7 @@ function GhostBtn({ onClick, children, color = colors.textFaint, borderColor, st
 
 // ── Main App ───────────────────────────────────────────────────
 export default function App() {
-  const { user, authReady, signInWithGoogle, signInWithGitHub, handleSignOut } = useAuth()
+  const { user, authReady, /* signInWithGoogle, signInWithGitHub, */ handleSignOut } = useAuth()
 
   const {
     status, transcript, partials, claims, report, judgeResult,
@@ -129,6 +129,7 @@ export default function App() {
     useDocumentUpload(user, status === 'debating')
 
   const [claim, setClaim] = useState('')
+  const [extracting, setExtracting] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(true)
   const [showLanding, setShowLanding] = useState(true)
   const [shareStatus, setShareStatus] = useState(null)
@@ -154,6 +155,31 @@ export default function App() {
     if (!claim.trim() && uploadedFiles.length === 0) return alert('Enter your position or upload documents to get started.')
     await startDebate(claim.trim() || '', user, uploadedFiles)
   }
+  async function handleFillFromDocument() {
+    if (!user || uploadedFiles.length === 0) return
+    setExtracting(true)
+    try {
+      const idToken = await user.getIdToken()
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/extract_claim`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idToken,
+            documentPaths: uploadedFiles.map(f => f.path),
+          }),
+        }
+      )
+      const { claim: extracted } = await res.json()
+      if (extracted) setClaim(extracted)
+    } catch (err) {
+      console.error('Extract claim error:', err)
+    } finally {
+      setExtracting(false)
+    }
+  }
+
   async function handleShare() {
     try {
       await copyShareText({ claim, report, judgeResult })
@@ -226,6 +252,18 @@ export default function App() {
         ))
       )}
 
+      {uploadedFiles.length > 0 && status !== 'debating' && (
+        <div style={{ marginTop: spacing.sm }}>
+          <GhostBtn
+            onClick={handleFillFromDocument}
+            color={extracting ? colors.textGhost : colors.info}
+            style={{ opacity: extracting ? 0.6 : 1, cursor: extracting ? 'default' : 'pointer' }}
+          >
+            {extracting ? '⏳ Extracting...' : '📄 Fill from document'}
+          </GhostBtn>
+        </div>
+      )}
+
       {user?.isAnonymous && status !== 'debating' && uploadedFiles.length > 0 && (
         <p style={{ ...mono, color: colors.textGhost, marginTop: spacing.sm }}>
           Guest uploads deleted at session end.
@@ -281,6 +319,7 @@ export default function App() {
             {user?.isAnonymous ? (
               <>
                 <span style={{ ...mono, color: colors.textFaint }}>Guest</span>
+                {/* Auth not implemented — sign-in buttons hidden
                 <GhostBtn onClick={signInWithGoogle} color={colors.info}>Google</GhostBtn>
                 <GhostBtn
                   onClick={signInWithGitHub}
@@ -288,6 +327,7 @@ export default function App() {
                   borderColor={colors.githubBorder}
                   style={{ background: colors.githubBtnBg }}
                 >GitHub</GhostBtn>
+                */}
               </>
             ) : (
               <>

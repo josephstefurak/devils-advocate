@@ -308,30 +308,65 @@ export function useDebateSession() {
         const { default: jsPDF } = await import('jspdf')
         const { default: html2canvas } = await import('html2canvas')
 
-        const canvas = await html2canvas(reportRef.current, {
+        // Collect section boundaries before rendering to avoid a page break inside a section.
+        const container = reportRef.current
+        const sectionBounds = Array.from(container.children).map(el => ({
+            top: el.offsetTop,
+            bottom: el.offsetTop + el.offsetHeight,
+        }))
+
+        const canvas = await html2canvas(container, {
             backgroundColor: '#0d0d0d',
             scale: 2,
             useCORS: true,
             logging: false,
         })
 
-        const imgData = canvas.toDataURL('image/png')
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' })
         const pageWidth = pdf.internal.pageSize.getWidth()
         const pageHeight = pdf.internal.pageSize.getHeight()
-        const imgWidth = pageWidth
-        const imgHeight = (canvas.height * pageWidth) / canvas.width
 
-        let heightLeft = imgHeight
-        let position = 0
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-        heightLeft -= pageHeight
+        // Scale factor: how many canvas px equal one PDF px
+        const domToCanvas = canvas.width / container.offsetWidth
+        // Page height expressed in canvas pixels
+        const scaledPageH = pageHeight * (canvas.width / pageWidth)
 
-        while (heightLeft > 0) {
-            position -= pageHeight
-            pdf.addPage()
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-            heightLeft -= pageHeight
+        // Build page break positions that never split a section
+        const breakPoints = []  // canvas-px positions where new pages start
+        let cursor = 0
+        while (cursor + scaledPageH < canvas.height) {
+            let breakAt = cursor + scaledPageH
+            for (const s of sectionBounds) {
+                const sTop = s.top * domToCanvas
+                const sBot = s.bottom * domToCanvas
+                // If this section straddles the proposed break, move break up
+                if (sTop < breakAt && sBot > breakAt) {
+                    breakAt = sTop
+                    break
+                }
+            }
+            breakPoints.push(breakAt)
+            cursor = breakAt
+        }
+
+        // Render each page slice onto a temporary canvas and add to PDF
+        const slices = [0, ...breakPoints, canvas.height]
+        for (let i = 0; i < slices.length - 1; i++) {
+            const sliceTop = slices[i]
+            const sliceH = slices[i + 1] - sliceTop
+
+            const tmpCanvas = document.createElement('canvas')
+            tmpCanvas.width = canvas.width
+            tmpCanvas.height = sliceH
+            tmpCanvas.getContext('2d').drawImage(
+                canvas, 0, sliceTop, canvas.width, sliceH, 0, 0, canvas.width, sliceH
+            )
+
+            const sliceImg = tmpCanvas.toDataURL('image/png')
+            const slicePdfH = sliceH * (pageWidth / canvas.width)
+
+            if (i > 0) pdf.addPage()
+            pdf.addImage(sliceImg, 'PNG', 0, 0, pageWidth, slicePdfH)
         }
 
         pdf.save(`devils-advocate-${new Date().toISOString().slice(0, 10)}.pdf`)

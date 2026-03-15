@@ -3,8 +3,9 @@ from email.mime import text
 import os
 from dotenv import load_dotenv
 import socketio
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from gemini_client import GeminiLiveClient
 from session_state import SessionState
@@ -12,6 +13,7 @@ from prompts import build_system_prompt, build_rag_context
 from claim_tracker import classify_turn
 from rag import rag
 from report import generate_report, run_judge
+from google import genai as genai_client
 
 from validation import sanitize_claim, validate_audio_chunk, validate_participant_id, MAX_CLAIM_LENGTH
 from rate_limiter import limiter
@@ -315,6 +317,68 @@ async def set_consent(sid, data):
         return
     sessions[sid]['consent'] = data.get('consent', True)
     print(f"Consent updated for {sid}: {sessions[sid]['consent']}")
+
+# ── REST: extract a claim summary from uploaded documents ──────────
+_genai = genai_client.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+@app.post("/extract_claim")
+async def extract_claim(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    id_token = data.get("idToken", "")
+    document_paths = data.get("documentPaths", [])
+
+    try:
+        fb_auth.verify_id_token(id_token)
+    except Exception:
+        return JSONResponse(status_code=401, content={"error": "Authentication failed."})
+
+    if not document_paths:
+        return JSONResponse(content={"claim": ""})
+
+    try:
+        doc_texts, _ = await asyncio.get_event_loop().run_in_executor(
+            None, download_and_extract, document_paths
+        )
+    except Exception as e:
+        print(f"[extract_claim] download error: {e}")
+        return JSONResponse(content={"claim": ""})
+
+    if not doc_texts:
+        return JSONResponse(content={"claim": ""})
+
+    # Limit input to ~3000 words
+    combined = " ".join(doc_texts)
+    word_limit = 3000
+    words = combined.split()
+    if len(words) > word_limit:
+        combined = " ".join(words[:word_limit])
+
+    prompt = (
+        "Summarize the following startup or business document into 2-3 sentences "
+        "describing the core idea, the problem being solved, and the target market. "
+        "Write it as a first-person pitch position (e.g. 'We are building ...'). "
+        "Return only the summary, no preamble.\n\nDocument:\n\n" + combined
+    )
+
+    try:
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: _genai.models.generate_content(
+                model="gemini-2.0-flash-lite",
+                contents=prompt,
+            )
+        )
+        claim_text = response.text.strip()
+    except Exception as e:
+        print(f"[extract_claim] Gemini error: {e}")
+        return JSONResponse(content={"claim": ""})
+
+    return JSONResponse(content={"claim": claim_text})
+
 
 # ── Run ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
