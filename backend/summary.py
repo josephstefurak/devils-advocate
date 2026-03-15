@@ -31,7 +31,7 @@ DOCUMENT TEXT:
 
     try:
         response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model="gemini-3.1-flash-lite-preview",
             contents=prompt,
             config=types.GenerateContentConfig(
                 max_output_tokens=300,
