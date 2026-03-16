@@ -8,6 +8,7 @@ VALID_RESULT = {
     "summary": "User cited specific CAC payback data to counter the agent's challenge",
     "strength": 7,
     "reason": "User provided concrete data that directly addressed the agent's challenge",
+    "suggested_argument": "Our pilots show 8 month payback"
 }
 
 CONCEDED_RESULT = {
@@ -15,6 +16,7 @@ CONCEDED_RESULT = {
     "summary": "User admitted they hadn't validated the market size assumption",
     "strength": 2,
     "reason": "User acknowledged a gap without providing counter-evidence",
+    "suggested_argument": "We're still validating the market size assumption"
 }
 
 
@@ -135,6 +137,7 @@ class TestClassifyTurn:
                 "summary": "test summary",
                 "strength": 5,
                 "reason": "test reason",
+                "suggested_argument": "test suggested argument"
             })
             mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 

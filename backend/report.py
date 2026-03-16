@@ -16,21 +16,45 @@ class JudgeScores(BaseModel):
 
 class JudgeResult(BaseModel):
     scores: JudgeScores = Field(description="Scores for each dimension (1-10)")
-    overall: float = Field(description="Average of the five scores, rounded to 1 decimal")
+    overall: float | None = Field(
+        default=None,
+        description="Average of the five scores, rounded to 1 decimal. May be omitted and computed from scores.",
+    )
     winner: str = Field(description='"founder" if overall >= 6, "agent" if < 6')
     summary: str = Field(description="2-3 sentence plain-English verdict on how the founder performed")
 
 
 # ── Report structured output ─────────────────────────────────────────────
 class ReportResult(BaseModel):
-    idea_summary: str = Field(description="2-3 sentence description of the business idea as it stood by the END of the debate")
+    idea_summary: str = Field(
+        default="",
+        description="2-3 sentence description of the business idea as it stood by the END of the debate",
+    )
     overall_score: float = Field(description="1-10 score (10 = exceptionally well-defended)")
-    verdict: str = Field(description="One sentence verdict explaining the score")
-    strengths: list[str] = Field(description="2-4 specific strengths with transcript evidence")
-    weaknesses: list[str] = Field(description="2-4 specific weaknesses with transcript evidence")
-    sharpest_moment: str = Field(description="The single best argument the founder made")
-    biggest_gap: str = Field(description="The most important question raised that the founder never adequately answered")
-    recommendation: str = Field(description="2-3 sentences of actionable next steps")
+    verdict: str = Field(
+        default="",
+        description="One sentence verdict explaining the score",
+    )
+    strengths: list[str] = Field(
+        default_factory=list,
+        description="2-4 specific strengths with transcript evidence",
+    )
+    weaknesses: list[str] = Field(
+        default_factory=list,
+        description="2-4 specific weaknesses with transcript evidence",
+    )
+    sharpest_moment: str = Field(
+        default="",
+        description="The single best argument the founder made",
+    )
+    biggest_gap: str = Field(
+        default="",
+        description="The most important question raised that the founder never adequately answered",
+    )
+    recommendation: str = Field(
+        default="",
+        description="2-3 sentences of actionable next steps",
+    )
 
 
 JUDGE_PROMPT = """
@@ -121,12 +145,20 @@ TRANSCRIPT:
                 response_json_schema=JudgeResult.model_json_schema(),
                 temperature=0.2,
                 max_output_tokens=1024,
-            )
+            ),
         )
-        judge = JudgeResult.model_validate_json(response.text)
+
+        raw_text = (response.text or "").strip()
+        if raw_text.startswith("```"):
+            lines = raw_text.splitlines()
+            if len(lines) >= 3 and lines[-1].strip().startswith("```"):
+                inner = "\n".join(lines[1:-1]).strip()
+                raw_text = inner or raw_text
+
+        judge = JudgeResult.model_validate_json(raw_text)
         result = judge.model_dump()
         # Ensure overall is computed if missing
-        if not result.get("overall") and result.get("scores"):
+        if result.get("overall") is None and result.get("scores"):
             s = result["scores"]
             result["overall"] = round(
                 (s["problem_clarity"] + s["market_logic"] + s["execution_risk"]
