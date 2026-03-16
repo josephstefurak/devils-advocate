@@ -17,6 +17,7 @@ class ClaimEvent:
     summary: str
     strength: int
     reason: str = ""
+    suggested_argument: str = ""
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
 @dataclass
@@ -49,6 +50,7 @@ class SessionState:
             summary=result.get("summary", ""),
             strength=result.get("strength", 0),
             reason=result.get("reason", ""),
+            suggested_argument=result.get("suggested_argument", ""),
         ))
 
     def to_dict(self) -> dict:
@@ -72,6 +74,7 @@ class SessionState:
                     "summary": c.summary,
                     "strength": c.strength,
                     "reason": c.reason,
+                    "suggested_argument": c.suggested_argument,
                     "timestamp": c.timestamp,
                 }
                 for c in self.claim_events

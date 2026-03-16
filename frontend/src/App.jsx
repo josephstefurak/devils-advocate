@@ -752,6 +752,51 @@ export default function App() {
                       ))}
                     </div>
 
+                    {report.claim_events?.length > 0 && (
+                      <div style={{ marginBottom: spacing.lg }}>
+                        <SectionLabel>Debate Breakdown</SectionLabel>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                          {report.claim_events.map((c, i) => {
+                            const col = classificationColor(c.classification)
+                            return (
+                              <div key={i} style={{
+                                borderLeft: `3px solid ${col.border}`,
+                                padding: `${spacing.md}px ${spacing.md}px`,
+                                borderBottom: i < report.claim_events.length - 1 ? `1px solid ${colors.border}` : 'none',
+                              }}>
+                                <div style={{
+                                  display: 'flex', alignItems: 'center', gap: spacing.sm,
+                                  marginBottom: spacing.xs,
+                                }}>
+                                  <span style={{ ...mono, fontSize: font.xs, fontWeight: 700, color: col.text }}>
+                                    {c.classification}
+                                  </span>
+                                  <span style={{ ...mono, fontSize: font.xs, color: colors.textDim }}>
+                                    {c.strength}/10
+                                  </span>
+                                </div>
+                                <p style={{
+                                  ...serif, margin: 0, fontSize: font.sm,
+                                  lineHeight: 1.5, color: colors.textMuted,
+                                }}>
+                                  {c.summary}
+                                </p>
+                                {c.suggested_argument && (
+                                  <p style={{
+                                    ...serif, margin: `${spacing.xs}px 0 0`,
+                                    fontSize: font.sm, lineHeight: 1.5,
+                                    color: colors.textDim, fontStyle: 'italic',
+                                  }}>
+                                    {c.suggested_argument}
+                                  </p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div style={{
                       display: 'grid', gridTemplateColumns: '1fr 1fr',
                       gap: spacing.md, marginBottom: spacing.lg,
