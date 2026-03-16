@@ -1,6 +1,11 @@
 # tests/backend/test_validation.py
 import pytest
-from validation import sanitize_claim, validate_audio_chunk, validate_participant_id
+from validation import (
+    sanitize_claim,
+    validate_audio_chunk,
+    validate_document_paths,
+    validate_participant_id,
+)
 
 class TestSanitizeClaim:
     def test_valid_claim(self):
@@ -92,3 +97,37 @@ class TestValidateParticipantId:
     def test_rejects_non_string(self):
         with pytest.raises(ValueError):
             validate_participant_id(123)
+
+
+class TestValidateDocumentPaths:
+    def test_accepts_paths_for_participant(self):
+        paths = [
+            "users/test_uid/documents/1710000000000_pitch.pdf",
+            "users/test_uid/documents/1710000000001_notes.txt",
+        ]
+        assert validate_document_paths(paths, "test_uid") == paths
+
+    def test_rejects_non_list(self):
+        with pytest.raises(ValueError):
+            validate_document_paths("users/test_uid/documents/file.pdf", "test_uid")
+
+    def test_rejects_other_user_path(self):
+        with pytest.raises(ValueError):
+            validate_document_paths(
+                ["users/other_uid/documents/1710000000000_pitch.pdf"],
+                "test_uid",
+            )
+
+    def test_rejects_nested_paths(self):
+        with pytest.raises(ValueError):
+            validate_document_paths(
+                ["users/test_uid/documents/subdir/pitch.pdf"],
+                "test_uid",
+            )
+
+    def test_rejects_path_traversal(self):
+        with pytest.raises(ValueError):
+            validate_document_paths(
+                ["users/test_uid/documents/../firebase_key.json"],
+                "test_uid",
+            )

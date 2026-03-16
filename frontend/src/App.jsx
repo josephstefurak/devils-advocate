@@ -11,7 +11,7 @@ import {
   colors, radius, font, spacing,
   scoreColor, classificationColor,
 } from './theme'
-import { copyShareText } from './Sharecard.jsx'
+import { copyShareText } from './ShareCard.jsx'
 
 
 // ── Shared style objects ───────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { io } from 'socket.io-client'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
@@ -56,6 +56,41 @@ export function useDebateSession() {
     const isPausedRef = useRef(false)
     const activeSourcesRef = useRef([])
     const micVolumeRef = useRef(0)
+    const preserveIdleOnDisconnectRef = useRef(false)
+
+    function resetLiveState() {
+        micStartedRef.current = false
+        isPausedRef.current = false
+        setIsPaused(false)
+        setMicVolume(0)
+        micVolumeRef.current = 0
+        interruptAgent()
+
+        if (speakingTimerRef.current) {
+            clearTimeout(speakingTimerRef.current)
+            speakingTimerRef.current = null
+        }
+
+        streamRef.current?.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+
+        if (audioContextRef.current) {
+            audioContextRef.current.close()
+            audioContextRef.current = null
+        }
+
+        if (micContextRef.current) {
+            micContextRef.current.close()
+            micContextRef.current = null
+        }
+    }
+
+    function disconnectSocket({ preserveIdle = false } = {}) {
+        if (!socketRef.current) return
+        preserveIdleOnDisconnectRef.current = preserveIdle
+        socketRef.current.disconnect()
+        socketRef.current = null
+    }
 
     // ── Socket setup ───────────────────────────────────────────────
     function connectSocket() {
@@ -99,15 +134,19 @@ export function useDebateSession() {
         })
 
         socketRef.current.on('disconnect', () => {
+            resetLiveState()
+            if (preserveIdleOnDisconnectRef.current) {
+                preserveIdleOnDisconnectRef.current = false
+                return
+            }
             setStatus('ended')
-            streamRef.current?.getTracks().forEach(t => t.stop())
         })
 
         socketRef.current.on('debate_report', (data) => {
             setReport(data)  // null is fine, UI handles it
             setReportReady(true)
             setStatus('ended')
-            streamRef.current?.getTracks().forEach(t => t.stop())
+            resetLiveState()
         })
 
         socketRef.current.on('agent_interrupted', () => {
@@ -156,21 +195,13 @@ export function useDebateSession() {
 
     function endDebate() {
         setStatus('ended')
-        micStartedRef.current = false
-        if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current)
-        streamRef.current?.getTracks().forEach(t => t.stop())
+        resetLiveState()
         socketRef.current?.emit('end_session')
-        if (audioContextRef.current) {
-            audioContextRef.current.close()
-            audioContextRef.current = null
-        }
-        if (micContextRef.current) {
-            micContextRef.current.close()
-            micContextRef.current = null
-        }
     }
 
     function resetSession() {
+        resetLiveState()
+        disconnectSocket({ preserveIdle: true })
         setStatus('idle')
         setReport(null)
         setReportReady(false)
@@ -178,6 +209,8 @@ export function useDebateSession() {
         setTranscript([])
         setPartials({})
         setClaims([])
+        setSessionStatus('')
+        setConsentGiven(true)
     }
 
     // ── Pause / Consent ────────────────────────────────────────────

@@ -3,6 +3,7 @@ import re
 MAX_CLAIM_LENGTH = 500
 MAX_AUDIO_CHUNK_BYTES = 32768  # 32KB max per chunk
 
+
 def sanitize_claim(claim: str) -> str:
     if not isinstance(claim, str):
         raise ValueError("Claim must be a string")
@@ -44,3 +45,26 @@ def validate_participant_id(pid: str) -> str:
     if not re.match(r'^[a-zA-Z0-9_\-]{1,64}$', pid):
         raise ValueError("Invalid participant ID format")
     return pid
+
+
+def validate_document_paths(document_paths, participant_id: str) -> list[str]:
+    if document_paths is None:
+        return []
+    if not isinstance(document_paths, list):
+        raise ValueError("Invalid document paths")
+
+    prefix = f"users/{participant_id}/documents/"
+    valid_paths = []
+    for path in document_paths:
+        if not isinstance(path, str):
+            raise ValueError("Invalid document path")
+        if not path.startswith(prefix):
+            raise ValueError("Invalid uploaded document reference")
+        if ".." in path or "\\" in path or path.endswith("/"):
+            raise ValueError("Invalid uploaded document reference")
+        filename = path[len(prefix):]
+        if not filename or "/" in filename:
+            raise ValueError("Invalid uploaded document reference")
+        valid_paths.append(path)
+
+    return valid_paths

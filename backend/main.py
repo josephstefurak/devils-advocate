@@ -1,6 +1,4 @@
 import asyncio
-from email.mime import text
-import os
 from dotenv import load_dotenv
 import socketio
 from fastapi import FastAPI
@@ -13,7 +11,13 @@ from claim_tracker import classify_turn
 from rag import rag
 from report import generate_report, run_judge
 
-from validation import sanitize_claim, validate_audio_chunk, validate_participant_id, MAX_CLAIM_LENGTH
+from validation import (
+    sanitize_claim,
+    validate_audio_chunk,
+    validate_document_paths,
+    validate_participant_id,
+    MAX_CLAIM_LENGTH,
+)
 from rate_limiter import limiter
 from firebase_logger import SessionLogger
 from storage_utils import download_and_extract, delete_user_files
@@ -83,8 +87,8 @@ async def start_session(sid, data):
         return
 
     claim_raw = (data.get('claim') or '').strip()
-    document_paths = data.get('documentPaths', [])
-    if not claim_raw and not document_paths:
+    document_paths_raw = data.get('documentPaths', [])
+    if not claim_raw and not document_paths_raw:
         await sio.emit('error', {'message': 'Enter your position or upload documents to get started.'}, to=sid)
         return
     try:
@@ -107,6 +111,12 @@ async def start_session(sid, data):
         participant_id = validate_participant_id(uid)
     except ValueError as e:
         await sio.emit('error', {'message': 'Invalid session identity.'}, to=sid)
+        return
+
+    try:
+        document_paths = validate_document_paths(document_paths_raw, participant_id)
+    except ValueError:
+        await sio.emit('error', {'message': 'Invalid uploaded document reference.'}, to=sid)
         return
 
     print(f"Starting session for {sid}, uid: {uid}, anonymous: {is_anonymous}, claim: {claim or '(from documents)'}")
@@ -174,9 +184,10 @@ async def start_session(sid, data):
                 return
             try:
                 await sio.emit('session_status', {'step': 'Summarizing your materials...'}, to=sid)
-                claim = await summarize_documents(doc_texts)
+                claim = (await summarize_documents(doc_texts)).strip()
                 if len(claim) > MAX_CLAIM_LENGTH:
                     claim = claim[:MAX_CLAIM_LENGTH - 3].rstrip() + "..."
+                claim = sanitize_claim(claim)
             except Exception as e:
                 print(f"[Session] Summary failed: {e}")
                 await sio.emit('error', {
