@@ -91,7 +91,11 @@ async def start_session(sid, data):
     claim_raw = (data.get('claim') or '').strip()
     document_paths = data.get('documentPaths', [])
     if not claim_raw and not document_paths:
-        await sio.emit('error', {'message': 'Enter your position or upload documents to get started.'}, to=sid)
+        await sio.emit(
+            'error',
+            {'message': 'Claim is empty. Enter your position or upload documents to get started.'},
+            to=sid
+        )
         return
     try:
         claim = sanitize_claim(claim_raw) if claim_raw else ''

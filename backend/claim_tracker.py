@@ -18,7 +18,14 @@ class ClaimClassificationResult(BaseModel):
     reason: str = Field(
         description="One sentence explaining why the turn was classified as such and the score was assigned. Maximum 25 words."
     )
-    suggested_argument: str = Field(description="1-3 sentences on the strongest argument the user could have made to better defend their position in this turn. Maximum 85 words.")
+    suggested_argument: str = Field(
+        default="",
+        description=(
+            "1-3 sentences on the strongest argument the user could have made to "
+            "better defend their position in this turn. Maximum 85 words. "
+            "Optional — default empty string if not provided."
+        ),
+    )
 
 
 CLASSIFY_PROMPT = """
