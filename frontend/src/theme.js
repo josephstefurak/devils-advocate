@@ -21,11 +21,11 @@ export const colors = {
 
     // Text
     textPrimary: '#f0f0f0',
-    textSecondary: '#ccc',
-    textMuted: '#aaa',
-    textDim: '#888',
-    textFaint: '#555',
-    textGhost: '#444',
+    textSecondary: '#eee',
+    textMuted: '#ccc',
+    textDim: '#AAA',
+    textFaint: '#777',
+    textGhost: '#555',
 
     // Semantic surfaces (classification backgrounds)
     defendedBg: '#052e16',

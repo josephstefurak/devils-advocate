@@ -116,7 +116,7 @@ function GhostBtn({ onClick, children, color = colors.textFaint, borderColor, st
 
 // ── Main App ───────────────────────────────────────────────────
 export default function App() {
-  const { user, authReady, signInWithGoogle, signInWithGitHub, handleSignOut } = useAuth()
+  const { user, authReady, /* signInWithGoogle, signInWithGitHub, */ handleSignOut } = useAuth()
 
   const {
     status, transcript, partials, claims, report, judgeResult,
@@ -129,6 +129,9 @@ export default function App() {
     useDocumentUpload(user, status === 'debating')
 
   const [claim, setClaim] = useState('')
+  const [extracting, setExtracting] = useState(false)
+  const [cachedExtractedClaim, setCachedExtractedClaim] = useState('')
+  const [lastGeneratedPaths, setLastGeneratedPaths] = useState(null)
   const [showOnboarding, setShowOnboarding] = useState(true)
   const [showLanding, setShowLanding] = useState(true)
   const [shareStatus, setShareStatus] = useState(null)
@@ -153,6 +156,55 @@ export default function App() {
     if (!authReady || !user) return alert('Auth not ready yet, try again')
     if (!claim.trim() && uploadedFiles.length === 0) return alert('Enter your position or upload documents to get started.')
     await startDebate(claim.trim() || '', user, uploadedFiles)
+  }
+
+  async function handleFillFromDocument() {
+    if (!user || uploadedFiles.length === 0) return
+
+    const currentKey = JSON.stringify([...uploadedFiles.map(f => f.path)].sort())
+
+    // Cache hit — same document set, no backend call needed
+    if (currentKey === lastGeneratedPaths && cachedExtractedClaim) {
+      setClaim(prev => prev ? `${prev}\n\n${cachedExtractedClaim}` : cachedExtractedClaim)
+      return
+    }
+
+    setExtracting(true)
+    try {
+      const idToken = await user.getIdToken()
+      const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/extract_claim`
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, documentPaths: uploadedFiles.map(f => f.path) }),
+      })
+
+      const text = await res.text()
+      let data = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        throw new Error(`Backend returned non-JSON response: ${text}`)
+      }
+
+      if (res.status === 429) {
+        alert(data.error || 'Claim generation limit reached. Please wait a few minutes.')
+        return
+      }
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+
+      if (data.claim) {
+        setCachedExtractedClaim(data.claim)
+        setLastGeneratedPaths(currentKey)
+        setClaim(prev => prev ? `${prev}\n\n${data.claim}` : data.claim)
+      }
+    } catch (err) {
+      console.error('Extract claim error:', err)
+      alert(`Extract claim failed: ${err.message}`)
+    } finally {
+      setExtracting(false)
+    }
   }
   async function handleShare() {
     try {
@@ -226,6 +278,18 @@ export default function App() {
         ))
       )}
 
+      {uploadedFiles.length > 0 && status !== 'debating' && (
+        <div style={{ marginTop: spacing.sm }}>
+          <GhostBtn
+            onClick={handleFillFromDocument}
+            color={extracting ? colors.textGhost : colors.info}
+            style={{ opacity: extracting ? 0.6 : 1, cursor: extracting ? 'default' : 'pointer' }}
+          >
+            {extracting ? '⏳ Extracting...' : '📄 Fill from document'}
+          </GhostBtn>
+        </div>
+      )}
+
       {user?.isAnonymous && status !== 'debating' && uploadedFiles.length > 0 && (
         <p style={{ ...mono, color: colors.textGhost, marginTop: spacing.sm }}>
           Guest uploads deleted at session end.
@@ -281,6 +345,7 @@ export default function App() {
             {user?.isAnonymous ? (
               <>
                 <span style={{ ...mono, color: colors.textFaint }}>Guest</span>
+                {/* Auth not implemented — sign-in buttons hidden
                 <GhostBtn onClick={signInWithGoogle} color={colors.info}>Google</GhostBtn>
                 <GhostBtn
                   onClick={signInWithGitHub}
@@ -288,6 +353,7 @@ export default function App() {
                   borderColor={colors.githubBorder}
                   style={{ background: colors.githubBtnBg }}
                 >GitHub</GhostBtn>
+                */}
               </>
             ) : (
               <>

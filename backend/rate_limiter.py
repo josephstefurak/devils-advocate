@@ -8,6 +8,7 @@ class RateLimiter:
         self._session_starts = defaultdict(list)
         self._audio_chunks = defaultdict(list)
         self._connections = defaultdict(list)  # { ip: [timestamp, ...] }
+        self._extract_claims = defaultdict(list)  # { uid: [timestamp, ...] }
 
     def _clean_window(self, timestamps: list, window_seconds: int) -> list:
         cutoff = time.time() - window_seconds
@@ -35,6 +36,14 @@ class RateLimiter:
         if len(self._audio_chunks[sid]) >= 200:
             return False
         self._audio_chunks[sid].append(time.time())
+        return True
+
+    def check_extract_claim(self, uid: str) -> bool:
+        """Max 3 claim extractions per user per 10 minutes."""
+        self._extract_claims[uid] = self._clean_window(self._extract_claims[uid], 600)
+        if len(self._extract_claims[uid]) >= 3:
+            return False
+        self._extract_claims[uid].append(time.time())
         return True
 
     def clear_sid(self, sid: str):
