@@ -37,6 +37,8 @@ const card = {
   padding: spacing.xl,
 }
 
+const CLAIM_CHARACTER_LIMIT = 500
+
 // ── Small reusable components ──────────────────────────────────
 function Spinner() {
   return (
@@ -400,6 +402,7 @@ export default function App() {
                 value={claim}
                 onChange={e => setClaim(e.target.value)}
                 placeholder="Describe your startup idea, business model, or hypothesis — or upload a pitch deck / business plan below."
+                maxLength={CLAIM_CHARACTER_LIMIT}
                 rows={5}
                 style={{
                   width: '100%', padding: spacing.md,
@@ -415,6 +418,21 @@ export default function App() {
                   transition: 'border-color 0.2s',
                 }}
               />
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: spacing.md,
+                marginTop: spacing.sm,
+                color: colors.textFaint,
+                ...mono,
+              }}>
+                <span>Typed claims: up to {CLAIM_CHARACTER_LIMIT} characters</span>
+                <span style={{
+                  color: claim.length >= CLAIM_CHARACTER_LIMIT ? colors.accent : colors.textFaint,
+                }}>
+                  {CLAIM_CHARACTER_LIMIT - claim.length} remaining
+                </span>
+              </div>
 
               {knowledgeBasePanel}
 
