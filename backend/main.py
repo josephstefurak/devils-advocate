@@ -1,8 +1,12 @@
 import asyncio
+import os
+import time
+
 from dotenv import load_dotenv
 import socketio
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from gemini_client import GeminiLiveClient
 from session_state import SessionState
@@ -10,6 +14,7 @@ from prompts import build_system_prompt, build_rag_context
 from claim_tracker import classify_turn
 from rag import rag
 from report import generate_report, run_judge
+from google import genai as genai_client
 
 from validation import (
     sanitize_claim,
@@ -24,8 +29,6 @@ from storage_utils import download_and_extract, delete_user_files
 from summary import summarize_documents
 from firebase_admin import auth as fb_auth
 
-import time
-
 MAX_SESSION_DURATION = 20 * 60  # 20 minutes
 MIN_TURNS_FOR_REPORT = 2  # require at least 2 user and 2 agent turns to generate report
 
@@ -39,7 +42,8 @@ sio = socketio.AsyncServer(
         'https://devils-advocate-ec48b.web.app',
         'https://devils-advocate-ec48b.firebaseapp.com',
         'https://devils-advocate-488918.web.app',
-        'http://localhost:5173'
+        'http://localhost:5173',
+        'http://localhost'
     ]
 )
 socket_app = socketio.ASGIApp(sio, app)
@@ -76,7 +80,10 @@ async def disconnect(sid, reason=None):
     limiter.clear_sid(sid)
     session = sessions.pop(sid, None)
     if session:
-        rag.delete_participant(session['participant_id'])  # add this
+        rag.delete_participant(session['participant_id'])
+        await asyncio.get_event_loop().run_in_executor(
+            None, delete_user_files, session['participant_id']
+        )
         await session['gemini'].close()
 
 @sio.event
@@ -121,126 +128,132 @@ async def start_session(sid, data):
 
     print(f"Starting session for {sid}, uid: {uid}, anonymous: {is_anonymous}, claim: {claim or '(from documents)'}")
 
-    state = SessionState(user_claim=claim)
-    system_prompt = build_system_prompt(claim)
+    try:
+        state = SessionState(user_claim=claim)
+        system_prompt = build_system_prompt(claim)
 
-    logger = SessionLogger(
-        session_id=state.session_id,
-        user_claim=claim,
-        uid=uid,
-        is_anonymous=is_anonymous
-    )
-
-    async def on_audio(audio_b64):
-        await sio.emit('agent_audio', audio_b64, to=sid)
-
-    async def on_text(text, partial=False):
-        if partial:
-            await sio.emit('transcript_partial', {'speaker': 'agent', 'text': text}, to=sid)
-        else:
-            state.add_turn('agent', text)
-            await sio.emit('transcript', {'speaker': 'agent', 'text': text}, to=sid)
-            logger.log_turn('agent', text, state.turn_count)
-
-    async def on_user_text(text, partial=False):
-        if partial:
-            await sio.emit('transcript_partial', {'speaker': 'user', 'text': text}, to=sid)
-        else:
-            state.add_turn('user', text)
-            await sio.emit('transcript', {'speaker': 'user', 'text': text}, to=sid)
-            logger.log_turn('user', text, state.turn_count)
-            async def on_claim_result(result):
-                state.add_claim_event(text, result)
-                await sio.emit('claim_update', result, to=sid)
-                logger.log_claim_event(result)
-            asyncio.create_task(classify_turn(
-                original_claim=state.user_claim,
-                context=state.get_recent_context(n=6),
-                user_turn=text,
-                on_result=on_claim_result
-            ))
-
-    async def on_reasoning(text):
-        await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)
-
-    async def on_interrupted():
-        await sio.emit('agent_interrupted', to=sid)
-        logger.log_interruption()
-
-    # 1. Load and embed documents first so RAG is ready before agent speaks
-    await sio.emit('session_status', {'step': 'Loading your documents...'}, to=sid)
-    doc_texts, doc_metas = [], []
-    if document_paths:
-        doc_texts, doc_metas = await asyncio.get_event_loop().run_in_executor(
-            None, download_and_extract, document_paths
+        logger = SessionLogger(
+            session_id=state.session_id,
+            user_claim=claim,
+            uid=uid,
+            is_anonymous=is_anonymous
         )
-        print(f"[Session] Ingesting {len(doc_texts)} user document chunks for {uid}")
-        # If user didn't type a claim, derive it from the document text
-        if not claim:
-            if not doc_texts:
-                await sio.emit('error', {
-                    'message': 'Could not extract text from your documents. Try adding a short description above or upload different files.'
-                }, to=sid)
-                return
-            try:
-                await sio.emit('session_status', {'step': 'Summarizing your materials...'}, to=sid)
-                claim = (await summarize_documents(doc_texts)).strip()
-                if len(claim) > MAX_CLAIM_LENGTH:
-                    claim = claim[:MAX_CLAIM_LENGTH - 3].rstrip() + "..."
-                claim = sanitize_claim(claim)
-            except Exception as e:
-                print(f"[Session] Summary failed: {e}")
-                await sio.emit('error', {
-                    'message': 'Could not summarize your documents. Try adding a short description above.'
-                }, to=sid)
-                return
-            state = SessionState(user_claim=claim)
-            system_prompt = build_system_prompt(claim)
-            logger = SessionLogger(
-                session_id=state.session_id,
-                user_claim=claim,
-                uid=uid,
-                is_anonymous=is_anonymous
+        async def on_audio(audio_b64):
+            await sio.emit('agent_audio', audio_b64, to=sid)
+
+        async def on_text(text, partial=False):
+            if partial:
+                await sio.emit('transcript_partial', {'speaker': 'agent', 'text': text}, to=sid)
+            else:
+                state.add_turn('agent', text)
+                await sio.emit('transcript', {'speaker': 'agent', 'text': text}, to=sid)
+                logger.log_turn('agent', text, state.turn_count)
+
+        async def on_user_text(text, partial=False):
+            if partial:
+                await sio.emit('transcript_partial', {'speaker': 'user', 'text': text}, to=sid)
+            else:
+                state.add_turn('user', text)
+                await sio.emit('transcript', {'speaker': 'user', 'text': text}, to=sid)
+                logger.log_turn('user', text, state.turn_count)
+                async def on_claim_result(result):
+                    state.add_claim_event(text, result)
+                    await sio.emit('claim_update', result, to=sid)
+                    logger.log_claim_event(result)
+                asyncio.create_task(classify_turn(
+                    original_claim=state.user_claim,
+                    context=state.get_recent_context(n=6),
+                    user_turn=text,
+                    on_result=on_claim_result
+                ))
+
+        async def on_reasoning(text):
+            await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)
+
+        async def on_interrupted():
+            await sio.emit('agent_interrupted', to=sid)
+            logger.log_interruption()
+
+        # 1. Load and embed documents first so RAG is ready before agent speaks
+        await sio.emit('session_status', {'step': 'Loading your documents...'}, to=sid)
+        doc_texts, doc_metas = [], []
+        if document_paths:
+            doc_texts, doc_metas = await asyncio.get_event_loop().run_in_executor(
+                None, download_and_extract, document_paths
             )
-    rag.ingest_documents(participant_id, texts=doc_texts, metadatas=doc_metas)
+            print(f"[Session] Ingesting {len(doc_texts)} user document chunks for {uid}")
+            # If user didn't type a claim, derive it from the document text
+            if not claim:
+                if not doc_texts:
+                    await sio.emit('error', {
+                        'message': 'Could not extract text from your documents. Try adding a short description above or upload different files.'
+                    }, to=sid)
+                    return
+                try:
+                    await sio.emit('session_status', {'step': 'Summarizing your materials...'}, to=sid)
+                    claim = (await summarize_documents(doc_texts)).strip()
+                    if len(claim) > MAX_CLAIM_LENGTH:
+                        claim = claim[:MAX_CLAIM_LENGTH - 3].rstrip() + "..."
+                    claim = sanitize_claim(claim)
+                except Exception as e:
+                    print(f"[Session] Summary failed: {e}")
+                    await sio.emit('error', {
+                        'message': 'Could not summarize your documents. Try adding a short description above.'
+                    }, to=sid)
+                    return
+                state = SessionState(user_claim=claim)
+                system_prompt = build_system_prompt(claim)
+                logger = SessionLogger(
+                    session_id=state.session_id,
+                    user_claim=claim,
+                    uid=uid,
+                    is_anonymous=is_anonymous
+                )
+        rag.ingest_documents(participant_id, texts=doc_texts, metadatas=doc_metas)
 
-    # 2. Connect Gemini
-    await sio.emit('session_status', {'step': 'Connecting to debate engine...'}, to=sid)
-    gemini = GeminiLiveClient(
-        system_prompt=system_prompt,
-        on_text=on_text,
-        on_audio=on_audio,
-        on_user_text=on_user_text,
-        on_reasoning=on_reasoning,
-        on_interrupted=on_interrupted
-    )
-    await gemini.connect()
+        # 2. Connect Gemini
+        await sio.emit('session_status', {'step': 'Connecting to debate engine...'}, to=sid)
+        gemini = GeminiLiveClient(
+            system_prompt=system_prompt,
+            on_text=on_text,
+            on_audio=on_audio,
+            on_user_text=on_user_text,
+            on_reasoning=on_reasoning,
+            on_interrupted=on_interrupted
+        )
+        await gemini.connect()
 
-    # 3. Retrieve RAG context using the claim as the seed query and inject
-    #    before the first turn so the opening challenge can reference documents
-    await sio.emit('session_status', {'step': 'Preparing your opponent...'}, to=sid)
-    rag_context = rag.retrieve(participant_id, claim, n_results=5)
-    if rag_context:
-        await gemini.send_context(build_rag_context(rag_context))
+        # 3. Retrieve RAG context using the claim as the seed query and inject
+        #    before the first turn so the opening challenge can reference documents
+        await sio.emit('session_status', {'step': 'Preparing your opponent...'}, to=sid)
+        rag_context = rag.retrieve(participant_id, claim, n_results=5)
+        if rag_context:
+            await gemini.send_context(build_rag_context(rag_context))
 
-    # 4. Show claim in transcript and send to agent — now fully context-aware
-    await sio.emit('transcript', {'speaker': 'user', 'text': claim}, to=sid)
-    await gemini.session.send_client_content(
-        turns=[{"role": "user", "parts": [{"text": claim}]}],
-        turn_complete=True
-    )
+        # 4. Show claim in transcript and send to agent — now fully context-aware
+        await sio.emit('transcript', {'speaker': 'user', 'text': claim}, to=sid)
+        await gemini.session.send_client_content(
+            turns=[{"role": "user", "parts": [{"text": claim}]}],
+            turn_complete=True
+        )
 
-    sessions[sid] = {
-        'gemini': gemini,
-        'state': state,
-        'participant_id': participant_id,
-        'is_anonymous': is_anonymous,
-        'document_paths': document_paths,
-        'logger': logger,
-        'started_at': time.time(),
-        'consent': True,
-    }
-    await sio.emit('session_ready', to=sid)
+        sessions[sid] = {
+            'gemini': gemini,
+            'state': state,
+            'participant_id': participant_id,
+            'is_anonymous': is_anonymous,
+            'document_paths': document_paths,
+            'logger': logger,
+            'started_at': time.time(),
+            'consent': True,
+        }
+        await sio.emit('session_ready', to=sid)
+    finally:
+        if document_paths and sid not in sessions:
+            print(f"[start_session] Setup failed for {sid}; cleaning up uploaded files for {uid}")
+            await asyncio.get_event_loop().run_in_executor(
+                None, delete_user_files, uid
+            )
 
 @sio.event
 async def audio_chunk(sid, data):
@@ -326,6 +339,84 @@ async def set_consent(sid, data):
         return
     sessions[sid]['consent'] = data.get('consent', True)
     print(f"Consent updated for {sid}: {sessions[sid]['consent']}")
+
+# ── REST: extract a claim summary from uploaded documents ──────────
+_genai = genai_client.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+@app.post("/extract_claim")
+async def extract_claim(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    id_token = data.get("idToken", "")
+    document_paths = data.get("documentPaths", [])
+
+    try:
+        decoded = fb_auth.verify_id_token(id_token)
+        uid = decoded['uid']
+    except Exception:
+        return JSONResponse(status_code=401, content={"error": "Authentication failed."})
+
+    if not limiter.check_extract_claim(uid):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "Claim generation limit reached. Please wait a few minutes."}
+        )
+
+    if not document_paths:
+        return JSONResponse(content={"claim": ""})
+
+    try:
+        participant_id = validate_participant_id(uid)
+        document_paths = validate_document_paths(document_paths, participant_id)
+    except ValueError:
+        return JSONResponse(status_code=400, content={"error": "Invalid uploaded document reference."})
+
+    try:
+        doc_texts, _ = await asyncio.get_event_loop().run_in_executor(
+            None, download_and_extract, document_paths
+        )
+    except Exception as e:
+        print(f"[extract_claim] download error: {e}")
+        return JSONResponse(content={"claim": ""})
+
+    if not doc_texts:
+        return JSONResponse(content={"claim": ""})
+
+    # Limit input to ~3000 words
+    combined = " ".join(doc_texts)
+    word_limit = 3000
+    words = combined.split()
+    if len(words) > word_limit:
+        combined = " ".join(words[:word_limit])
+
+    prompt = (
+        "Summarize the following startup or business document into 2-3 sentences "
+        "describing the core idea, the problem being solved, and the target market. "
+        "Write it as a first-person pitch position (e.g. 'We are building ...'). "
+        "Return only the summary, no preamble.\n\nDocument:\n\n" + combined
+    )
+
+    try:
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: _genai.models.generate_content(
+                model="gemini-3.1-flash-lite-preview",
+                contents=prompt,
+            )
+        )
+        claim_text = response.text.strip()
+    except Exception as e:
+        print(f"[extract_claim] Gemini error: {e}")
+        return JSONResponse(content={"claim": ""})
+
+    return JSONResponse(content={"claim": claim_text})
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
 
 # ── Run ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
