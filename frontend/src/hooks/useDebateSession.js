@@ -1,7 +1,11 @@
 import { useState, useRef } from 'react'
 import { io } from 'socket.io-client'
+import { colors, font } from '../theme'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+const LETTER_PX = { w: 612, h: 792 }
+const PDF_TITLE_PAGE_LINK = 'https://devils-advocate-488918.web.app/'
 
 /**
  * useDebateSession
@@ -336,17 +340,105 @@ export function useDebateSession() {
     }
 
     // ── PDF export ─────────────────────────────────────────────────
-    async function exportToPDF(reportRef) {
+    async function exportToPDF(reportRef, { report, claim } = {}) {
         if (!reportRef?.current) return
         const { default: jsPDF } = await import('jspdf')
         const { default: html2canvas } = await import('html2canvas')
 
-        // Collect section boundaries before rendering to avoid a page break inside a section.
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'letter' })
+        const pageWidth = pdf.internal.pageSize.getWidth()
+        const pageHeight = pdf.internal.pageSize.getHeight()
+
+        // Title page (page 1) when report is available — render as HTML so it uses site fonts
+        if (report) {
+            const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+            const titleEl = document.createElement('div')
+            titleEl.setAttribute('data-pdf-title-page', '')
+            Object.assign(titleEl.style, {
+                position: 'fixed',
+                left: '-9999px',
+                top: '0',
+                width: `${LETTER_PX.w}px`,
+                height: `${LETTER_PX.h}px`,
+                background: colors.bgDark,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '80px 48px',
+                boxSizing: 'border-box',
+                fontFamily: "'Georgia', 'Times New Roman', serif",
+            })
+            titleEl.innerHTML = `
+                <div style="
+                    font-family: 'Bebas Neue', Georgia, serif;
+                    font-size: 42px;
+                    letter-spacing: 2px;
+                    color: ${colors.accent};
+                    margin-bottom: 16px;
+                    text-align: center;
+                ">DEVIL'S ADVOCATE</div>
+                <div style="
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 12px;
+                    letter-spacing: 2px;
+                    color: ${colors.textFaint};
+                    text-transform: uppercase;
+                    margin-bottom: 72px;
+                ">Pitch Defense Report</div>
+                <div style="
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 11px;
+                    color: ${colors.textDim};
+                    margin-bottom: 48px;
+                ">${dateStr}</div>
+                <div style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 8px;
+                ">
+                    <span style="
+                        font-family: 'JetBrains Mono', monospace;
+                        font-size: 10px;
+                        letter-spacing: 1px;
+                        color: ${colors.textFaint};
+                    ">For more info:</span>
+                    <a href="${PDF_TITLE_PAGE_LINK}" style="
+                        font-family: 'JetBrains Mono', monospace;
+                        font-size: 11px;
+                        color: ${colors.accent};
+                        text-decoration: none;
+                        letter-spacing: 1px;
+                    ">${PDF_TITLE_PAGE_LINK}</a>
+                </div>
+            `
+            document.body.appendChild(titleEl)
+            const titleCanvas = await html2canvas(titleEl, {
+                backgroundColor: colors.bgDark,
+                scale: 2,
+                useCORS: true,
+                logging: false,
+            })
+            document.body.removeChild(titleEl)
+            const titleImg = titleCanvas.toDataURL('image/png')
+            const titlePdfH = titleCanvas.height * (pageWidth / titleCanvas.width)
+            pdf.addImage(titleImg, 'PNG', 0, 0, pageWidth, titlePdfH)
+            pdf.addPage()
+        }
+
         const container = reportRef.current
-        const sectionBounds = Array.from(container.children).map(el => ({
-            top: el.offsetTop,
-            bottom: el.offsetTop + el.offsetHeight,
-        }))
+
+        // Hide elements not meant for PDF first, so layout reflects the exported state
+        const hiddenEls = Array.from(container.querySelectorAll('[data-pdf-hide]'))
+        hiddenEls.forEach(el => el.style.display = 'none')
+
+        // Measure forced break positions after hiding, so they match the canvas
+        const containerRect = container.getBoundingClientRect()
+        const forcedBreaksDom = Array.from(container.querySelectorAll('[data-pdf-page-break]'))
+            .map(el => el.getBoundingClientRect().top - containerRect.top)
+            .filter(pos => pos > 0)
+            .sort((a, b) => a - b)
 
         const canvas = await html2canvas(container, {
             backgroundColor: '#0d0d0d',
@@ -355,31 +447,28 @@ export function useDebateSession() {
             logging: false,
         })
 
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' })
-        const pageWidth = pdf.internal.pageSize.getWidth()
-        const pageHeight = pdf.internal.pageSize.getHeight()
+        hiddenEls.forEach(el => el.style.display = '')
 
-        // Scale factor: how many canvas px equal one PDF px
         const domToCanvas = canvas.width / container.offsetWidth
-        // Page height expressed in canvas pixels
         const scaledPageH = pageHeight * (canvas.width / pageWidth)
 
-        // Build page break positions that never split a section
-        const breakPoints = []  // canvas-px positions where new pages start
+        const forcedBreaks = forcedBreaksDom
+            .map(pos => pos * domToCanvas)
+            .filter(pos => pos < canvas.height)
+
+        const breakPoints = []
         let cursor = 0
+        let forcedIdx = 0
+
         while (cursor + scaledPageH < canvas.height) {
-            let breakAt = cursor + scaledPageH
-            for (const s of sectionBounds) {
-                const sTop = s.top * domToCanvas
-                const sBot = s.bottom * domToCanvas
-                // If this section straddles the proposed break, move break up
-                if (sTop < breakAt && sBot > breakAt) {
-                    breakAt = sTop
-                    break
-                }
+            if (forcedIdx < forcedBreaks.length && forcedBreaks[forcedIdx] <= cursor + scaledPageH) {
+                breakPoints.push(forcedBreaks[forcedIdx])
+                cursor = forcedBreaks[forcedIdx]
+                forcedIdx++
+            } else {
+                breakPoints.push(cursor + scaledPageH)
+                cursor += scaledPageH
             }
-            breakPoints.push(breakAt)
-            cursor = breakAt
         }
 
         // Render each page slice onto a temporary canvas and add to PDF
@@ -399,11 +488,13 @@ export function useDebateSession() {
             const slicePdfH = sliceH * (pageWidth / canvas.width)
 
             if (i > 0) pdf.addPage()
+            pdf.setFillColor(13, 13, 13)
+            pdf.rect(0, 0, pageWidth, pageHeight, 'F')
             pdf.addImage(sliceImg, 'PNG', 0, 0, pageWidth, slicePdfH)
         }
 
         pdf.save(`devils-advocate-${new Date().toISOString().slice(0, 10)}.pdf`)
-        }
+    }
 
     return {
         // state

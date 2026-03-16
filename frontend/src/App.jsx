@@ -442,7 +442,7 @@ export default function App() {
                 </PrimaryBtn>
                 {(judgeResult || report) && (
                   <GhostBtn
-                    onClick={() => exportToPDF(reportRef)}
+                    onClick={() => exportToPDF(reportRef, { report, claim })}
                     color={colors.info}
                   >Export PDF</GhostBtn>
                 )}
@@ -688,7 +688,7 @@ export default function App() {
                         {judgeResult.summary}
                       </p>
                     </div>
-                    <div style={{ marginTop: spacing.lg, borderTop: `1px solid ${colors.border}`, paddingTop: spacing.lg }}>
+                    <div data-pdf-hide style={{ marginTop: spacing.lg, borderTop: `1px solid ${colors.border}`, paddingTop: spacing.lg }}>
                       <button onClick={handleShare} style={{
                         padding: `8px 20px`,
                         background: 'transparent',
@@ -714,7 +714,9 @@ export default function App() {
                     <span style={{ ...mono, color: colors.textFaint }}>Generating report...</span>
                   </div>
                 ) : report ? (
-                  <div style={{ ...card }}>
+                  <>
+                  {/* Page 1: Scorecard context, idea, verdict, strengths, weaknesses */}
+                  <div style={{ ...card, marginBottom: spacing.lg }}>
 
                     {report.idea_summary && (
                       <div style={{
@@ -755,7 +757,7 @@ export default function App() {
                       ))}
                     </div>
 
-                    <div style={{ marginBottom: spacing.lg }}>
+                    <div>
                       <SectionLabel color={colors.accent}>Weaknesses</SectionLabel>
                       {report.weaknesses.map((w, i) => (
                         <div key={i} style={{
@@ -769,6 +771,55 @@ export default function App() {
                         </div>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Page 2: Debate breakdown, best moment, biggest gap, next steps */}
+                  <div style={{ ...card }} data-pdf-page-break>
+
+                    {report.claim_events?.length > 0 && (
+                      <div style={{ marginBottom: spacing.lg }}>
+                        <SectionLabel>Debate Breakdown</SectionLabel>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                          {report.claim_events.map((c, i) => {
+                            const col = classificationColor(c.classification)
+                            return (
+                              <div key={i} style={{
+                                borderLeft: `3px solid ${col.border}`,
+                                padding: `${spacing.md}px ${spacing.md}px`,
+                                borderBottom: i < report.claim_events.length - 1 ? `1px solid ${colors.border}` : 'none',
+                              }}>
+                                <div style={{
+                                  display: 'flex', alignItems: 'center', gap: spacing.sm,
+                                  marginBottom: spacing.xs,
+                                }}>
+                                  <span style={{ ...mono, fontSize: font.xs, fontWeight: 700, color: col.text }}>
+                                    {c.classification}
+                                  </span>
+                                  <span style={{ ...mono, fontSize: font.xs, color: colors.textDim }}>
+                                    {c.strength}/10
+                                  </span>
+                                </div>
+                                <p style={{
+                                  ...serif, margin: 0, fontSize: font.sm,
+                                  lineHeight: 1.5, color: colors.textMuted,
+                                }}>
+                                  {c.summary}
+                                </p>
+                                {c.suggested_argument && (
+                                  <p style={{
+                                    ...serif, margin: `${spacing.xs}px 0 0`,
+                                    fontSize: font.sm, lineHeight: 1.5,
+                                    color: colors.textDim, fontStyle: 'italic',
+                                  }}>
+                                    {c.suggested_argument}
+                                  </p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <div style={{
                       display: 'grid', gridTemplateColumns: '1fr 1fr',
@@ -809,6 +860,7 @@ export default function App() {
                       </p>
                     </div>
                   </div>
+                  </>
                 ) : (
                   <div style={{ ...card }}>
                     <span style={{ ...mono, color: colors.textFaint }}>
@@ -821,7 +873,7 @@ export default function App() {
 
               <div style={{ display: 'flex', gap: spacing.md, marginTop: spacing.lg }}>
                 {(judgeResult || report) && (
-                  <GhostBtn onClick={() => exportToPDF(reportRef)} color={colors.info}>
+                  <GhostBtn onClick={() => exportToPDF(reportRef, { report, claim })} color={colors.info}>
                     Export PDF
                   </GhostBtn>
                 )}

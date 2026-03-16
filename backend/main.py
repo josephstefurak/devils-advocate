@@ -331,7 +331,8 @@ async def end_session(sid):
         session['logger'].log_judge(judge_result)
 
     if report:
-        await sio.emit('debate_report', report, to=sid)
+        claim_events_list = state.to_dict()["claim_events"]
+        await sio.emit('debate_report', {**report, "claim_events": claim_events_list}, to=sid)
         session['logger'].log_report(report)
 
     session['logger'].finalize(consent_given=session['consent'])
