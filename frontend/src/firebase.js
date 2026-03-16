@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, GithubAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth'
 import { getStorage, ref, uploadBytesResumable, deleteObject, listAll, getMetadata } from 'firebase/storage'
-import { getAnalytics } from 'firebase/analytics'
 
 
 const firebaseConfig = {
@@ -18,7 +17,19 @@ const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
 export const storage = getStorage(app)
-export const analytics = getAnalytics(app)
+export let analytics = null
+
+if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
+    import('firebase/analytics')
+        .then(async ({ getAnalytics, isSupported }) => {
+            if (await isSupported()) {
+                analytics = getAnalytics(app)
+            }
+        })
+        .catch((err) => {
+            console.warn('Firebase Analytics unavailable in this environment:', err)
+        })
+}
 export const googleProvider = new GoogleAuthProvider()
 export const githubProvider = new GithubAuthProvider()
 export { ref, uploadBytesResumable, deleteObject, listAll, getMetadata }

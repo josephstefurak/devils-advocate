@@ -1,7 +1,8 @@
 .env
+.venv*/
 __pycache__/
 node_modules/
-.env.localnode_modules/
+.env.local
 backend/venv/
 backend/__pycache__/
 .DS_Store

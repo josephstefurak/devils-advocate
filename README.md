@@ -1,107 +1,107 @@
 # Devil's Advocate
 
-**Devil's Advocate** is a voice-based AI application that stress-tests business ideas through live spoken debate. You pitch your idea; the AI argues against it — challenging your market assumptions, unit economics, competitive positioning, and core logic in real time.
+**Devil's Advocate** is a live voice AI debate system for stress-testing startup ideas. A founder presents an idea, the agent pushes back in real time with grounded counterarguments, and the app finishes with a judge scorecard plus a post-debate report.
 
-Built as a submission for the **Google Gemini Live Agent Challenge** and as the foundation of a **UIST research project** comparing AI debate feedback against traditional peer review.
+Built for the **Google Gemini Live Agent Challenge** and for **UIUC CS 568 (User-Centered Machine Learning)** as a research prototype exploring whether adversarial AI feedback improves early-stage startup refinement.
 
-**Live demo:** [devils-advocate-ec48b.web.app](https://devils-advocate-ec48b.web.app)
+**Live deployment:** [devils-advocate-488918.web.app](https://devils-advocate-488918.web.app/)
 
----
+**Architecture diagram:** [docs/arch_diagram.pdf](docs/arch_diagram.pdf)
 
-## Features
+## What The Product Does
 
-### Live Voice Debate
-Powered by the Gemini Live API (`gemini-2.5-flash-native-audio-latest`), the agent conducts a fully spoken, bidirectional conversation with real-time audio streaming and interruption support. The agent alternates between **Challenge Mode** (attacking a claim with specific data) and **Question Mode** (forcing the user to confront an unexamined assumption).
-
-### RAG-Grounded Challenges
-A ChromaDB vector store (ephemeral, in-process) is seeded at startup with a curated knowledge base covering startup failure patterns, market sizing benchmarks, business model tradeoffs, and competition dynamics. Each turn, relevant chunks are retrieved and injected into the agent's context. Users can also upload their own pitch documents (PDF or `.txt`) which are chunked and merged into their session's corpus.
-
-### Google Search Grounding
-The agent has native access to Google Search via Gemini's tool support, allowing it to cite real competitor funding, actual market size figures, and recent data rather than hallucinating statistics.
-
-### Claim Classification & Argument Tracker
-After each user turn, `gemini-2.5-flash-lite` classifies the response as `DEFENDED`, `CONCEDED`, `NEW_CLAIM`, or `DEFLECTED` with a 1–10 strength score. The frontend renders a live Argument Tracker showing the last 5 classified turns with color-coded status.
-
-### Post-Debate Report
-At session end, the backend runs a judge pass and a full report generation pass concurrently. The report includes an overall score (1–10), verdict, strengths, weaknesses, the sharpest moment from the founder, the biggest gap that went unanswered, and concrete next steps.
-
-### Live Transcript
-Full transcript display with four speaker types: agent, user, reasoning (Gemini thinking tokens), and buffered partial streaming for both sides.
-
-### Firebase Auth & Data Logging
-Supports anonymous sign-in, Google, and GitHub OAuth. Session data (transcripts, claim events, interruption counts, final reports) is logged to Firestore. Anonymous users have their uploaded files deleted from Firebase Storage at session end. Consent toggle defaults to on; if consent is not given, data is permanently deleted on finalization.
-
-### Rate Limiting & Input Validation
-IP-based connection rate limiting, per-session audio chunk throttling, claim sanitization (500 char max, control character stripping, whitespace normalization), and Firebase ID token verification on every session start.
-
----
+- Runs a fully spoken, interruptible debate using the Gemini Live API.
+- Grounds the agent with a startup knowledge base, uploaded founder documents, and Google Search.
+- Tracks whether the founder defended, conceded, deflected, or introduced a new claim.
+- Generates a judge scorecard and a post-debate gap analysis at the end of the session.
+- Logs sessions to Firebase for research when consent is enabled.
 
 ## Architecture
 
-```
-frontend/          React + Vite (Firebase Hosting)
-  src/
-    App.jsx                   # Main UI, audio pipeline, socket client
-    hooks/useDebateSession.js # Audio scheduling, agent interrupt logic
-    useDocumentUpload.js      # Firebase Storage upload/list/delete
-    firebase.js               # Firebase SDK init
+High-level flow:
 
-backend/           FastAPI + python-socketio (Cloud Run)
-  main.py                     # Socket event handlers, session lifecycle
-  gemini_client.py            # Gemini Live API wrapper
-  prompts.py                  # System prompt + RAG context builder
-  claim_tracker.py            # Per-turn classification via Flash Lite
-  report.py                   # Post-debate report + judge generation
-  session_state.py            # Turn history, claim events, session ID
-  storage_utils.py            # Firebase Storage download + PDF extraction
-  firebase_logger.py          # Firestore session logging
-  validation.py               # Input sanitization
-  rate_limiter.py             # IP + session rate limiting
-  rag/
-    base.py                   # RAGBackend ABC (swap-ready for Vertex AI)
-    chroma_backend.py         # ChromaDB ephemeral implementation
-  knowledge_base/             # Static .txt files loaded at startup
+1. The React/Vite frontend handles auth, document uploads, mic capture, audio playback, transcript UI, scorecards, and report export.
+2. The FastAPI + Socket.IO backend manages session lifecycle, validation, rate limiting, RAG retrieval, Gemini Live streaming, and post-debate evaluation.
+3. Firebase Auth identifies the user, Firebase Storage stores uploaded files, and Firestore stores consented session logs.
+4. Gemini Live powers the debate loop, while lighter Gemini models classify turns, summarize uploaded materials, and generate judge/report outputs.
 
-tests/
-  backend/                    # pytest-asyncio integration + unit tests
+Submission artifact:
+
+- Upload [docs/arch_diagram.pdf](docs/arch_diagram.pdf) to the Devpost image gallery or file upload so judges can find it quickly.
+
+## Repo Layout
+
+```text
+frontend/          React + Vite app
+backend/           FastAPI + Socket.IO backend
+tests/backend/     Backend unit and integration tests
+docs/              Planning docs, submission requirements, architecture diagram
 ```
 
-**Infrastructure:** Cloud Run (backend, `--min-instances 0`), Firebase Hosting (frontend), Firestore (session logs), Firebase Storage (user uploads), Secret Manager (credentials), Cloud Build (CI/CD).
+## New Contributor Setup
 
----
+If you do not already have local credentials, ask a teammate for access to the shared project resources before you start.
 
-## Local Setup
+You will need:
+
+- Access to the shared Firebase project.
+- Access to the shared Google Cloud project.
+- The Firebase web app config values for the frontend.
+- A Gemini API key, or confirmation of which shared key/project to use locally.
+- A Firebase Admin SDK service account JSON for local backend access.
+- Firestore and Firebase Storage access in the shared project.
+- Firebase Auth provider setup for `Anonymous`, `Google`, and `GitHub`.
+- Authorized Firebase Auth domains for `localhost`, `127.0.0.1`, and the deployed Hosting domains.
+
+Recommended teammate handoff checklist:
+
+1. Add you to the Firebase and Google Cloud projects.
+2. Share the Firebase web app config values.
+3. Share a local-use service account JSON with Firestore and Storage access.
+4. Confirm the correct `FIREBASE_STORAGE_BUCKET` value.
+5. Confirm the Gemini API key or local secret workflow.
+6. Confirm that Google and GitHub auth providers are enabled in Firebase Auth.
+
+## Local Development
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.11, 3.12, or 3.13
+- [uv](https://docs.astral.sh/uv/) for Python environment management
 - Node.js 18+
-- A Google Cloud project with the following enabled:
-  - Gemini API (with a valid API key)
-  - Firebase (Auth, Firestore, Storage)
-  - Firebase Admin SDK service account key
+- npm
 
----
+Optional but useful:
 
-### 1. Clone the repo
+- Firebase CLI for Hosting deploys
+- Google Cloud CLI for Cloud Run / Cloud Build work
+
+Avoid Python 3.14 for now. `chromadb` in the current dependency set is not fully compatible with it in local tests.
+
+### 1. Clone the Repo
 
 ```bash
 git clone https://github.com/josephstefurak/devils-advocate.git
 cd devils-advocate
 ```
 
----
+### 2. Set Up The Backend With `uv`
 
-### 2. Backend
+Create a local virtual environment and install both runtime and test dependencies:
 
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+uv venv .venv
+source .venv/bin/activate
+uv pip install -r backend/requirements.txt -r requirements-dev.txt
 ```
 
-Create `backend/.env`:
+Create the backend environment file from the example:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Update `backend/.env`:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key
@@ -109,24 +109,35 @@ FIREBASE_KEY_PATH=./firebase_key.json
 FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
 ```
 
-Place your Firebase Admin SDK service account JSON at `backend/firebase_key.json`.
+Place the Firebase Admin SDK JSON at:
 
-Start the server:
-
-```bash
-uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload
+```text
+backend/firebase_key.json
 ```
 
----
+Start the backend:
 
-### 3. Frontend
+```bash
+cd backend
+python -m uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 3. Set Up The Frontend
+
+Install frontend dependencies:
 
 ```bash
 cd frontend
 npm install
 ```
 
-Create `frontend/.env.local`:
+Create the frontend environment file from the example:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Update `frontend/.env.local`:
 
 ```env
 VITE_BACKEND_URL=http://localhost:8000
@@ -136,9 +147,10 @@ VITE_FIREBASE_PROJECT_ID=...
 VITE_FIREBASE_STORAGE_BUCKET=...
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
+VITE_FIREBASE_MEASUREMENT_ID=...
 ```
 
-Start the dev server:
+Start the frontend:
 
 ```bash
 npm run dev
@@ -146,29 +158,64 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
----
+### 4. Auth Requirements For Local Testing
 
-### 4. Running Tests
+If Google or GitHub sign-in does not work locally, check Firebase Auth before debugging the app code:
+
+1. `Anonymous`, `Google`, and `GitHub` providers must be enabled.
+2. `localhost` and `127.0.0.1` must be listed under Firebase Auth authorized domains.
+3. Your Firebase web config must match the same project that owns the enabled auth providers.
+
+## Local Verification
+
+This repo does **not** have a CI/CD safety net for your branch, so validate locally before opening a PR.
+
+Recommended local checks:
+
+1. Run backend tests:
 
 ```bash
-# From repo root
-pip install -r requirements-dev.txt
-pytest -v
+source .venv/bin/activate
+python -m pytest -v
 ```
 
----
-
-## Deployment
-
-### Backend → Cloud Run
+2. Run frontend tests:
 
 ```bash
-gcloud builds submit --config cloudbuild.yaml
+cd frontend
+npm test
 ```
 
-Secrets (`GEMINI_API_KEY`, `firebase_key.json`) are managed via Secret Manager and mounted at runtime.
+3. Manual product checks:
 
-### Frontend → Firebase Hosting
+- Start a debate with a typed claim only.
+- Start a debate with uploaded documents only.
+- Complete a full session and verify transcript, claim tracker, judge scorecard, share flow, and PDF export.
+- Compare behavior against the deployed site at [devils-advocate-488918.web.app](https://devils-advocate-488918.web.app/), but treat local testing as the source of truth for branch validation.
+
+## Deployment Notes
+
+### Public Demo
+
+The current team deployment used for demos and submission materials is:
+
+- [https://devils-advocate-488918.web.app/](https://devils-advocate-488918.web.app/)
+
+### Backend Deployment
+
+This repo does not currently include a checked-in `cloudbuild.yaml` or a full CI/CD pipeline.
+
+For Google Cloud deployment, coordinate with the team member who owns production access and ensure the following are configured:
+
+- A Cloud Run service for the backend container built from [backend/Dockerfile](backend/Dockerfile).
+- Secret management for `GEMINI_API_KEY`.
+- A mounted or otherwise accessible Firebase Admin SDK key file at the path referenced by `FIREBASE_KEY_PATH`.
+- Runtime environment variables including `FIREBASE_STORAGE_BUCKET`.
+- CORS/auth settings aligned with the deployed frontend domains.
+
+### Frontend Deployment
+
+The frontend is deployed with Firebase Hosting using [firebase.json](firebase.json):
 
 ```bash
 cd frontend
@@ -176,34 +223,45 @@ npm run build
 firebase deploy --only hosting
 ```
 
----
+## Submission Checklist
+
+For the Gemini Live Agent Challenge / Devpost submission, make sure the repo supports:
+
+- Public code repository with reproducible local setup instructions.
+- Clear description of Gemini, Firebase, and Google Cloud usage.
+- Architecture diagram: [docs/arch_diagram.pdf](docs/arch_diagram.pdf).
+- Public demo link: [devils-advocate-488918.web.app](https://devils-advocate-488918.web.app/).
+- Proof-of-deployment recording showing the deployed frontend plus the Google Cloud backend/service view.
+- Demo video showing the real multimodal live-agent workflow, not mockups.
 
 ## Environment Variables Reference
 
 | Variable | Location | Description |
 |---|---|---|
-| `GEMINI_API_KEY` | Backend `.env` / Secret Manager | Gemini API key |
-| `FIREBASE_KEY_PATH` | Backend `.env` | Path to Firebase Admin SDK JSON |
-| `FIREBASE_STORAGE_BUCKET` | Backend `.env` | Firebase Storage bucket name |
-| `VITE_BACKEND_URL` | Frontend `.env.local` | Backend WebSocket URL |
-| `VITE_FIREBASE_*` | Frontend `.env.local` | Firebase web app config values |
-
----
+| `GEMINI_API_KEY` | `backend/.env` | Gemini API key used by backend agent flows |
+| `FIREBASE_KEY_PATH` | `backend/.env` | Path to local Firebase Admin SDK JSON |
+| `FIREBASE_STORAGE_BUCKET` | `backend/.env` | Firebase Storage bucket for uploaded docs |
+| `VITE_BACKEND_URL` | `frontend/.env.local` | Local backend URL |
+| `VITE_FIREBASE_API_KEY` | `frontend/.env.local` | Firebase web API key |
+| `VITE_FIREBASE_AUTH_DOMAIN` | `frontend/.env.local` | Firebase auth domain |
+| `VITE_FIREBASE_PROJECT_ID` | `frontend/.env.local` | Firebase project ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | `frontend/.env.local` | Firebase Storage bucket |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | `frontend/.env.local` | Firebase messaging sender ID |
+| `VITE_FIREBASE_APP_ID` | `frontend/.env.local` | Firebase app ID |
+| `VITE_FIREBASE_MEASUREMENT_ID` | `frontend/.env.local` | Firebase Analytics measurement ID |
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, Vite |
+| Frontend | React, Vite, Firebase Web SDK |
 | Backend | FastAPI, python-socketio |
-| AI | Gemini Live API (`gemini-2.5-flash-native-audio-latest`), Gemini Flash Lite |
-| Vector Store | ChromaDB (ephemeral) |
-| Auth & Storage | Firebase Auth, Firebase Storage |
-| Database | Firestore |
-| Hosting | Cloud Run (backend), Firebase Hosting (frontend) |
-| CI/CD | Cloud Build, Secret Manager |
-
----
+| AI | Gemini Live API, Gemini Flash Lite |
+| Retrieval | ChromaDB + uploaded document chunks |
+| Auth / Storage | Firebase Auth, Firebase Storage |
+| Logging | Firestore |
+| Hosting | Firebase Hosting, Cloud Run |
+| Local Python Workflow | `uv` + `requirements.txt` |
 
 ## License
 

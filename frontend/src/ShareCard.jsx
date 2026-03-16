@@ -19,7 +19,7 @@
 //   "The founder cited real data but never closed
 //    the distribution gap."
 //
-//   Stress-test your idea → devils-advocate-ec48b.web.app
+//   Stress-test your idea → devils-advocate-488918.web.app
 
 export function buildShareText({ claim, report, judgeResult }) {
     const lines = []

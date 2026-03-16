@@ -1,6 +1,7 @@
 import asyncio
-from email.mime import text
 import os
+import time
+
 from dotenv import load_dotenv
 import socketio
 from fastapi import FastAPI, Request
@@ -15,14 +16,18 @@ from rag import rag
 from report import generate_report, run_judge
 from google import genai as genai_client
 
-from validation import sanitize_claim, validate_audio_chunk, validate_participant_id, MAX_CLAIM_LENGTH
+from validation import (
+    sanitize_claim,
+    validate_audio_chunk,
+    validate_document_paths,
+    validate_participant_id,
+    MAX_CLAIM_LENGTH,
+)
 from rate_limiter import limiter
 from firebase_logger import SessionLogger
 from storage_utils import download_and_extract, delete_user_files
 from summary import summarize_documents
 from firebase_admin import auth as fb_auth
-
-import time
 
 MAX_SESSION_DURATION = 20 * 60  # 20 minutes
 MIN_TURNS_FOR_REPORT = 2  # require at least 2 user and 2 agent turns to generate report
@@ -89,8 +94,8 @@ async def start_session(sid, data):
         return
 
     claim_raw = (data.get('claim') or '').strip()
-    document_paths = data.get('documentPaths', [])
-    if not claim_raw and not document_paths:
+    document_paths_raw = data.get('documentPaths', [])
+    if not claim_raw and not document_paths_raw:
         await sio.emit(
             'error',
             {'message': 'Claim is empty. Enter your position or upload documents to get started.'},
@@ -119,6 +124,12 @@ async def start_session(sid, data):
         await sio.emit('error', {'message': 'Invalid session identity.'}, to=sid)
         return
 
+    try:
+        document_paths = validate_document_paths(document_paths_raw, participant_id)
+    except ValueError:
+        await sio.emit('error', {'message': 'Invalid uploaded document reference.'}, to=sid)
+        return
+
     print(f"Starting session for {sid}, uid: {uid}, anonymous: {is_anonymous}, claim: {claim or '(from documents)'}")
 
     try:
@@ -131,7 +142,6 @@ async def start_session(sid, data):
             uid=uid,
             is_anonymous=is_anonymous
         )
-
         async def on_audio(audio_b64):
             await sio.emit('agent_audio', audio_b64, to=sid)
 
@@ -185,9 +195,10 @@ async def start_session(sid, data):
                     return
                 try:
                     await sio.emit('session_status', {'step': 'Summarizing your materials...'}, to=sid)
-                    claim = await summarize_documents(doc_texts)
+                    claim = (await summarize_documents(doc_texts)).strip()
                     if len(claim) > MAX_CLAIM_LENGTH:
                         claim = claim[:MAX_CLAIM_LENGTH - 3].rstrip() + "..."
+                    claim = sanitize_claim(claim)
                 except Exception as e:
                     print(f"[Session] Summary failed: {e}")
                     await sio.emit('error', {
@@ -360,6 +371,12 @@ async def extract_claim(request: Request):
 
     if not document_paths:
         return JSONResponse(content={"claim": ""})
+
+    try:
+        participant_id = validate_participant_id(uid)
+        document_paths = validate_document_paths(document_paths, participant_id)
+    except ValueError:
+        return JSONResponse(status_code=400, content={"error": "Invalid uploaded document reference."})
 
     try:
         doc_texts, _ = await asyncio.get_event_loop().run_in_executor(

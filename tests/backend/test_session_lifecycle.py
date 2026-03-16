@@ -29,6 +29,9 @@ def patched_server():
              "firebase": {"sign_in_provider": "anonymous"}
          }), \
          patch("gemini_client.GeminiLiveClient", return_value=mock_gemini), \
+         patch("rag.chroma_backend.ChromaBackend.ingest_documents"), \
+         patch("rag.chroma_backend.ChromaBackend.retrieve", return_value=""), \
+         patch("rag.chroma_backend.ChromaBackend.delete_participant"), \
          patch("main.download_and_extract", return_value=([], [])), \
          patch("main.delete_user_files"):
 
@@ -102,7 +105,30 @@ class TestSessionLifecycle:
 
         event = await client.receive(timeout=3)
         assert event[0] == "error"
-        assert "empty" in event[1]["message"].lower()
+        assert "enter your position or upload documents" in event[1]["message"].lower()
+
+        await client.disconnect()
+
+    async def test_rejects_document_paths_for_other_users(self, patched_server):
+        client = socketio.AsyncSimpleClient()
+        await client.connect(f"http://127.0.0.1:{SERVER_PORT}")
+
+        await client.emit("start_session", {
+            "claim": "I want to build a B2B SaaS for HR teams",
+            "idToken": "fake_token",
+            "isAnonymous": True,
+            "documentPaths": ["users/other-user/documents/pitch.pdf"]
+        })
+
+        error_event = None
+        for _ in range(5):
+            event = await client.receive(timeout=3)
+            if event[0] == "error":
+                error_event = event
+                break
+
+        assert error_event is not None, "Never received error event"
+        assert "invalid uploaded document reference" in error_event[1]["message"].lower()
 
         await client.disconnect()
 

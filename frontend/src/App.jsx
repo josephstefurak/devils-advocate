@@ -11,7 +11,7 @@ import {
   colors, radius, font, spacing,
   scoreColor, classificationColor,
 } from './theme'
-import { copyShareText } from './Sharecard.jsx'
+import { copyShareText } from './ShareCard.jsx'
 
 
 // ── Shared style objects ───────────────────────────────────────
@@ -116,7 +116,7 @@ function GhostBtn({ onClick, children, color = colors.textFaint, borderColor, st
 
 // ── Main App ───────────────────────────────────────────────────
 export default function App() {
-  const { user, authReady, /* signInWithGoogle, signInWithGitHub, */ handleSignOut } = useAuth()
+  const { user, authReady, signInWithGoogle, signInWithGitHub, handleSignOut } = useAuth()
 
   const {
     status, transcript, partials, claims, report, judgeResult,
@@ -345,7 +345,6 @@ export default function App() {
             {user?.isAnonymous ? (
               <>
                 <span style={{ ...mono, color: colors.textFaint }}>Guest</span>
-                {/* Auth not implemented — sign-in buttons hidden
                 <GhostBtn onClick={signInWithGoogle} color={colors.info}>Google</GhostBtn>
                 <GhostBtn
                   onClick={signInWithGitHub}
@@ -353,7 +352,6 @@ export default function App() {
                   borderColor={colors.githubBorder}
                   style={{ background: colors.githubBtnBg }}
                 >GitHub</GhostBtn>
-                */}
               </>
             ) : (
               <>
