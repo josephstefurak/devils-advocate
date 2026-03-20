@@ -17,6 +17,7 @@ def sanitize_claim(claim: str) -> str:
         raise ValueError(f"Claim exceeds {MAX_CLAIM_LENGTH} character limit")
     
     # Strip any injection attempts — remove control characters
+    claim = re.sub(r'</?\s*\w[\w\s]*>', '', claim)
     claim = re.sub(r'[\x00-\x1f\x7f]', '', claim)
     
     # Collapse excessive whitespace

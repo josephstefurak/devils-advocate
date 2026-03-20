@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
+import uuid
 
 @dataclass
 class Turn:
@@ -28,7 +29,7 @@ class SessionState:
     claim_events: list = field(default_factory=list)
     turn_count: int = 0
     session_id: str = field(
-        default_factory=lambda: datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        default_factory=lambda: datetime.utcnow().strftime("%Y%m%d_%H%M%S_") + str(uuid.uuid4())[:8]
     )
     started_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 

@@ -47,6 +47,7 @@ export function useDebateSession() {
     const [sessionStatus, setSessionStatus] = useState('')
     const [micVolume, setMicVolume] = useState(0)  // 0-1 float
     const [reportReady, setReportReady] = useState(false)
+    const [sessionId, setSessionId] = useState(null)
 
     // ── Refs ───────────────────────────────────────────────────────
     const socketRef = useRef(null)
@@ -129,7 +130,8 @@ export function useDebateSession() {
             setClaims(prev => [...prev, result])
         })
 
-        socketRef.current.on('session_ready', () => {
+        socketRef.current.on('session_ready', (data) => {
+            setSessionId(data?.sessionId || null)
             setStatus('debating')
             if (!micStartedRef.current) {
                 micStartedRef.current = true
@@ -138,11 +140,11 @@ export function useDebateSession() {
         })
 
         socketRef.current.on('disconnect', () => {
-            resetLiveState()
             if (preserveIdleOnDisconnectRef.current) {
                 preserveIdleOnDisconnectRef.current = false
-                return
+                return  // ← bail before resetLiveState
             }
+            resetLiveState()
             setStatus('ended')
         })
 
@@ -185,6 +187,7 @@ export function useDebateSession() {
         setJudgeResult(null)
         micStartedRef.current = false
         activeSourcesRef.current = []
+        isPausedRef.current = false
 
         connectSocket()
 
@@ -215,6 +218,7 @@ export function useDebateSession() {
         setClaims([])
         setSessionStatus('')
         setConsentGiven(true)
+        setSessionId(null)
     }
 
     // ── Pause / Consent ────────────────────────────────────────────
@@ -222,7 +226,13 @@ export function useDebateSession() {
         const newVal = !isPausedRef.current
         isPausedRef.current = newVal
         setIsPaused(newVal)
-        if (newVal) interruptAgent()
+        if (newVal) {
+            interruptAgent()
+            socketRef.current?.emit('pause_session')
+        } else {
+            isPausedRef.current = false
+            socketRef.current?.emit('resume_session')
+        }
     }
 
     function handleConsentToggle() {
@@ -510,6 +520,7 @@ export function useDebateSession() {
         sessionStatus,
         micVolume,
         reportReady,
+        sessionId,
         // actions
         startDebate,
         endDebate,
@@ -517,6 +528,7 @@ export function useDebateSession() {
         togglePause,
         handleConsentToggle,
         exportToPDF,
+
 
     }
 }

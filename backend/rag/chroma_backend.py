@@ -87,5 +87,12 @@ class ChromaBackend(RAGBackend):
     def delete_participant(self, participant_id: str) -> None:
         try:
             _client.delete_collection(f"participant_{participant_id}")
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"RAG delete_participant error: {e}")
+            # Force-create a fresh empty collection to prevent stale data leaking
+            try:
+                _client.get_or_create_collection(f"participant_{participant_id}")
+                _client.delete_collection(f"participant_{participant_id}")
+            except Exception as e2:
+                print(f"RAG delete_participant error (fallback): {e2}")
+                pass 

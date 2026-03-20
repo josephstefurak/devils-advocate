@@ -1,6 +1,8 @@
 import asyncio
+from email.mime import message
 import os
 import time
+import re
 
 from dotenv import load_dotenv
 import socketio
@@ -81,11 +83,39 @@ async def disconnect(sid, reason=None):
     last_retrieval.pop(sid, None)
     session = sessions.pop(sid, None)
     if session:
-        rag.delete_participant(session['participant_id'])
-        await asyncio.get_event_loop().run_in_executor(
-            None, delete_user_files, session['participant_id']
-        )
-        await session['gemini'].close()
+        try:
+            rag.delete_participant(session['participant_id'])
+        except Exception as e:
+            print(f"RAG cleanup error on disconnect: {e}")
+        if session.get('is_anonymous'):
+            await asyncio.get_event_loop().run_in_executor(
+                None, delete_user_files, session['participant_id']
+            )
+        try:
+            await session['gemini'].close()
+        except Exception as e:
+            print(f"Gemini close error on disconnect: {e}")
+
+
+def strip_markdown(text: str) -> str:
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # bold
+    text = re.sub(r'\*(.*?)\*', r'\1', text)        # italic
+    text = re.sub(r'`(.*?)`', r'\1', text)          # inline code
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)  # headers
+    text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)  # bullets
+    return text.strip()
+
+@sio.event
+async def pause_session(sid):
+    if sid in sessions:
+        sessions[sid]['paused'] = True
+
+@sio.event
+async def resume_session(sid):
+    if sid in sessions:
+        sessions[sid]['paused'] = False
+
+
 
 @sio.event
 async def start_session(sid, data):
@@ -144,15 +174,21 @@ async def start_session(sid, data):
             is_anonymous=is_anonymous
         )
         async def on_audio(audio_b64):
-            await sio.emit('agent_audio', audio_b64, to=sid)
+            if not sessions.get(sid, {}).get('paused', False):
+                await sio.emit('agent_audio', audio_b64, to=sid)
 
         async def on_text(text, partial=False):
+            
             if partial:
                 await sio.emit('transcript_partial', {'speaker': 'agent', 'text': text}, to=sid)
             else:
+                text = strip_markdown(text)
                 state.add_turn('agent', text)
                 await sio.emit('transcript', {'speaker': 'agent', 'text': text}, to=sid)
-                logger.log_turn('agent', text, state.turn_count)
+                try:
+                    logger.log_turn('agent', text, state.turn_count)
+                except Exception as e:
+                    print(f"Logging error (on_text): {e}")
 
         async def on_user_text(text, partial=False):
             if partial:
@@ -160,11 +196,17 @@ async def start_session(sid, data):
             else:
                 state.add_turn('user', text)
                 await sio.emit('transcript', {'speaker': 'user', 'text': text}, to=sid)
-                logger.log_turn('user', text, state.turn_count)
+                try:
+                    logger.log_turn('user', text, state.turn_count)
+                except Exception as e:
+                    print(f"Logging error (on_user_text): {e}")
                 async def on_claim_result(result):
                     state.add_claim_event(text, result)
                     await sio.emit('claim_update', result, to=sid)
-                    logger.log_claim_event(result)
+                    try:
+                        logger.log_claim_event(result)
+                    except Exception as e:
+                        print(f"Logging error (on_claim_result): {e}")
                 asyncio.create_task(classify_turn(
                     original_claim=state.user_claim,
                     context=state.get_recent_context(n=6),
@@ -173,11 +215,15 @@ async def start_session(sid, data):
                 ))
 
         async def on_reasoning(text):
-            await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)
+            #await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)
+            pass  # for now we're not surfacing reasoning events in the UI
 
         async def on_interrupted():
             await sio.emit('agent_interrupted', to=sid)
-            logger.log_interruption()
+            try:
+                logger.log_interruption()
+            except Exception as e:
+                print(f"Logging error (on_interrupted): {e}")
 
         # 1. Load and embed documents first so RAG is ready before agent speaks
         await sio.emit('session_status', {'step': 'Loading your documents...'}, to=sid)
@@ -216,6 +262,9 @@ async def start_session(sid, data):
                 )
         rag.ingest_documents(participant_id, texts=doc_texts, metadatas=doc_metas)
 
+        async def on_error(message):
+            await sio.emit('error', {'message': message}, to=sid)
+
         # 2. Connect Gemini
         await sio.emit('session_status', {'step': 'Connecting to debate engine...'}, to=sid)
         gemini = GeminiLiveClient(
@@ -224,7 +273,8 @@ async def start_session(sid, data):
             on_audio=on_audio,
             on_user_text=on_user_text,
             on_reasoning=on_reasoning,
-            on_interrupted=on_interrupted
+            on_interrupted=on_interrupted,
+            on_error=on_error,
         )
         await gemini.connect()
 
@@ -236,12 +286,6 @@ async def start_session(sid, data):
             await gemini.send_context(build_rag_context(rag_context))
 
         # 4. Show claim in transcript and send to agent — now fully context-aware
-        await sio.emit('transcript', {'speaker': 'user', 'text': claim}, to=sid)
-        await gemini.session.send_client_content(
-            turns=[{"role": "user", "parts": [{"text": claim}]}],
-            turn_complete=True
-        )
-
         sessions[sid] = {
             'gemini': gemini,
             'state': state,
@@ -251,8 +295,19 @@ async def start_session(sid, data):
             'logger': logger,
             'started_at': time.time(),
             'consent': True,
+            'paused': False,
         }
-        await sio.emit('session_ready', to=sid)
+
+        await asyncio.sleep(0.1) # slight delay to ensure client is ready for incoming messages
+
+        await sio.emit('transcript', {'speaker': 'user', 'text': claim}, to=sid)
+        await gemini.session.send_client_content(
+            turns=[{"role": "user", "parts": [{"text": claim}]}],
+            turn_complete=True
+        )
+
+        
+        await sio.emit('session_ready', {'sessionId': state.session_id}, to=sid)
     finally:
         if document_paths and sid not in sessions:
             print(f"[start_session] Setup failed for {sid}; cleaning up uploaded files for {uid}")
@@ -263,15 +318,18 @@ async def start_session(sid, data):
 @sio.event
 async def audio_chunk(sid, data):
     if sid not in sessions:
+        print(f"Dropping chunk — {sid} not in sessions")  # ← add
         return
     
     if not limiter.check_audio_chunk(sid):
-        return  # silently drop — don't emit error on every chunk
+        print(f"Rate limit dropping chunk for {sid}")  # ← add
+        return
 
     try:
         audio_bytes = validate_audio_chunk(data)
-    except ValueError:
-        return  # silently drop bad chunks
+    except ValueError as e:
+        print(f"Invalid audio chunk from {sid}: {e}")  # ← add
+        return
 
     session = sessions[sid]
 
@@ -298,20 +356,41 @@ async def audio_chunk(sid, data):
 
     await gemini.send_audio(audio_bytes)
 
+async def with_retry(coro_fn, max_retries=2):
+    for attempt in range(max_retries + 1):
+        try:
+            return await coro_fn()
+        except Exception as e:
+            msg = str(e)
+            if '429' in msg and attempt < max_retries:
+                match = re.search(r'retry in (\d+(?:\.\d+)?)s', msg, re.IGNORECASE)
+                delay = float(match.group(1)) if match else 30.0
+                print(f"429 quota hit, retrying in {delay}s...")
+                await asyncio.sleep(delay)
+            else:
+                raise e
+
 @sio.event
 async def end_session(sid):
     session = sessions.pop(sid, None)
     if session is None:
         return
 
-    rag.delete_participant(session['participant_id'])
+    try:
+        rag.delete_participant(session['participant_id'])
+    except Exception as e:
+        print(f"RAG cleanup error: {e}")
 
     # Delete uploaded files for anonymous users
     if session.get('is_anonymous'):
         await asyncio.get_event_loop().run_in_executor(
             None, delete_user_files, session['participant_id']
         )
-    await session['gemini'].close()
+    try:
+        await session['gemini'].close()
+    except Exception as e:
+        print(f"Gemini close error: {e}")
+
     state = session['state']
 
     if state.turn_count < MIN_TURNS_FOR_REPORT:
@@ -320,19 +399,28 @@ async def end_session(sid):
         await sio.disconnect(sid)
         return
 
-    # Run judge and report concurrently
-    judge_result, report = await asyncio.gather(
-        run_judge(state),
-        generate_report(state)
-    )
+    # Sequential with retry to avoid concurrent 429 quota burst
+    judge_result = None
+    report = None
+
+    try:
+        judge_result = await with_retry(lambda: run_judge(state))
+    except Exception as e:
+        print(f"Judge failed after retries: {e}")
+
+    try:
+        report = await with_retry(lambda: generate_report(state))
+    except Exception as e:
+        print(f"Report failed after retries: {e}")
 
     if judge_result:
         await sio.emit('judge_result', judge_result, to=sid)
         session['logger'].log_judge(judge_result)
 
+    claim_events_list = state.to_dict()["claim_events"]
+    payload = {**report, "claim_events": claim_events_list} if report else None
+    await sio.emit('debate_report', payload, to=sid)  # always emits — fixes spinner hang
     if report:
-        claim_events_list = state.to_dict()["claim_events"]
-        await sio.emit('debate_report', {**report, "claim_events": claim_events_list}, to=sid)
         session['logger'].log_report(report)
 
     session['logger'].finalize(consent_given=session['consent'])

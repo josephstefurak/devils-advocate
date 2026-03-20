@@ -11,7 +11,7 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 MODEL = "gemini-2.5-flash-native-audio-latest"
 
 class GeminiLiveClient:
-    def __init__(self, system_prompt: str, on_text: callable, on_audio: callable, on_user_text: callable = None, on_reasoning: callable = None, on_grounding: callable = None, on_interrupted: callable = None):
+    def __init__(self, system_prompt: str, on_text: callable, on_audio: callable, on_user_text: callable = None, on_reasoning: callable = None, on_grounding: callable = None, on_interrupted: callable = None, on_error: callable = None):
         self.system_prompt = system_prompt
         self.on_text = on_text
         self.on_audio = on_audio
@@ -22,7 +22,7 @@ class GeminiLiveClient:
         self._task = None
         self.on_grounding = on_grounding
         self.on_interrupted = on_interrupted
-
+        self.on_error = on_error
 
     async def connect(self):
         config = types.LiveConnectConfig(
@@ -30,10 +30,14 @@ class GeminiLiveClient:
             system_instruction=self.system_prompt,
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),
+            speech_config=types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Charon")
+                )
+            ),
             tools=[
                 types.Tool(google_search=types.GoogleSearch())
             ],
-            
         )
         self._context = client.aio.live.connect(model=MODEL, config=config)
         self.session = await self._context.__aenter__()
@@ -47,8 +51,11 @@ class GeminiLiveClient:
             await self.session.send_realtime_input(
                 audio=types.Blob(data=audio_bytes, mime_type="audio/pcm;rate=16000")
             )
-        except Exception:
+        except Exception as e:
+            print(f"Audio send error: {e}")
             self.running = False
+            if self.on_error:
+                await self.on_error("Connection to debate engine lost. Please end and start a new session.")
 
     async def _listen(self):
         agent_transcript_buffer = ""
@@ -66,7 +73,6 @@ class GeminiLiveClient:
                             if part.text and self.on_reasoning:
                                 await self.on_reasoning(part.text.strip())
                             if part.inline_data and "audio" in part.inline_data.mime_type:
-                                # Flush user transcript when agent starts responding
                                 if user_transcript_buffer.strip() and self.on_user_text:
                                     await self.on_user_text(user_transcript_buffer.strip(), partial=False)
                                     user_transcript_buffer = ""
@@ -87,13 +93,13 @@ class GeminiLiveClient:
                         if agent_transcript_buffer.strip():
                             await self.on_text(agent_transcript_buffer.strip(), partial=False)
                             agent_transcript_buffer = ""
+                        else: 
+                            print(f"turn_complete with empty transcript buffer — audio-only turn")
                         if user_transcript_buffer.strip() and self.on_user_text:
                             await self.on_user_text(user_transcript_buffer.strip(), partial=False)
                             user_transcript_buffer = ""
                     if sc.grounding_metadata and self.on_grounding:
                         await self.on_grounding(sc.grounding_metadata)
-
-
                     if sc.interrupted:
                         agent_transcript_buffer = ""
                         user_transcript_buffer = ""
@@ -114,7 +120,7 @@ class GeminiLiveClient:
             )
         except Exception as e:
             print(f"Context injection error: {e}")
-            
+
     async def close(self):
         self.running = False
         if self._task:

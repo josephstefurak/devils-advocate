@@ -12,7 +12,7 @@ import {
   scoreColor, classificationColor,
 } from './theme'
 import { copyShareText } from './ShareCard.jsx'
-
+import { FeedbackWidget } from './feedback'
 
 // ── Shared style objects ───────────────────────────────────────
 const mono = {
@@ -122,7 +122,7 @@ export default function App() {
 
   const {
     status, transcript, partials, claims, report, judgeResult,
-    isAgentSpeaking, isPaused, consentGiven, sessionStatus, micVolume, reportReady,
+    isAgentSpeaking, isPaused, consentGiven, sessionStatus, micVolume, reportReady, sessionId,
     startDebate, endDebate, resetSession, togglePause,
     handleConsentToggle, exportToPDF,
   } = useDebateSession()
@@ -157,6 +157,7 @@ export default function App() {
   async function handleStartDebate() {
     if (!authReady || !user) return alert('Auth not ready yet, try again')
     if (!claim.trim() && uploadedFiles.length === 0) return alert('Enter your position or upload documents to get started.')
+    agentHasSpokenRef.current = false
     await startDebate(claim.trim() || '', user, uploadedFiles)
   }
 
@@ -715,151 +716,151 @@ export default function App() {
                   </div>
                 ) : report ? (
                   <>
-                  {/* Page 1: Scorecard context, idea, verdict, strengths, weaknesses */}
-                  <div style={{ ...card, marginBottom: spacing.lg }}>
+                    {/* Page 1: Scorecard context, idea, verdict, strengths, weaknesses */}
+                    <div style={{ ...card, marginBottom: spacing.lg }}>
 
-                    {report.idea_summary && (
-                      <div style={{
-                        background: colors.bgDeep,
-                        border: `1px solid ${colors.border}`,
-                        borderRadius: radius.md,
-                        padding: spacing.md, marginBottom: spacing.xl,
-                      }}>
-                        <SectionLabel>Idea (as debated)</SectionLabel>
-                        <p style={{
-                          ...serif, color: colors.textMuted,
-                          fontSize: font.md, lineHeight: 1.6, margin: 0,
+                      {report.idea_summary && (
+                        <div style={{
+                          background: colors.bgDeep,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: radius.md,
+                          padding: spacing.md, marginBottom: spacing.xl,
                         }}>
-                          {report.idea_summary}
-                        </p>
-                      </div>
-                    )}
-
-                    <p style={{
-                      color: colors.textSecondary, fontSize: font.lg,
-                      lineHeight: 1.5, marginBottom: spacing.xl
-                    }}>
-                      {report.verdict}
-                    </p>
-
-                    <div style={{ marginBottom: spacing.lg }}>
-                      <SectionLabel color={colors.success}>Strengths</SectionLabel>
-                      {report.strengths.map((s, i) => (
-                        <div key={i} style={{
-                          display: 'flex', gap: spacing.sm,
-                          alignItems: 'flex-start', marginBottom: spacing.sm,
-                        }}>
-                          <span style={{ color: colors.success, marginTop: 2, flexShrink: 0 }}>✓</span>
-                          <p style={{ ...serif, margin: 0, fontSize: font.md, lineHeight: 1.5, color: colors.textMuted }}>
-                            {s}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div>
-                      <SectionLabel color={colors.accent}>Weaknesses</SectionLabel>
-                      {report.weaknesses.map((w, i) => (
-                        <div key={i} style={{
-                          display: 'flex', gap: spacing.sm,
-                          alignItems: 'flex-start', marginBottom: spacing.sm,
-                        }}>
-                          <span style={{ color: colors.accent, marginTop: 2, flexShrink: 0 }}>✗</span>
-                          <p style={{ ...serif, margin: 0, fontSize: font.md, lineHeight: 1.5, color: colors.textMuted }}>
-                            {w}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Page 2: Debate breakdown, best moment, biggest gap, next steps */}
-                  <div style={{ ...card }} data-pdf-page-break>
-
-                    {report.claim_events?.length > 0 && (
-                      <div style={{ marginBottom: spacing.lg }}>
-                        <SectionLabel>Debate Breakdown</SectionLabel>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                          {report.claim_events.map((c, i) => {
-                            const col = classificationColor(c.classification)
-                            return (
-                              <div key={i} style={{
-                                borderLeft: `3px solid ${col.border}`,
-                                padding: `${spacing.md}px ${spacing.md}px`,
-                                borderBottom: i < report.claim_events.length - 1 ? `1px solid ${colors.border}` : 'none',
-                              }}>
-                                <div style={{
-                                  display: 'flex', alignItems: 'center', gap: spacing.sm,
-                                  marginBottom: spacing.xs,
-                                }}>
-                                  <span style={{ ...mono, fontSize: font.xs, fontWeight: 700, color: col.text }}>
-                                    {c.classification}
-                                  </span>
-                                  <span style={{ ...mono, fontSize: font.xs, color: colors.textDim }}>
-                                    {c.strength}/10
-                                  </span>
-                                </div>
-                                <p style={{
-                                  ...serif, margin: 0, fontSize: font.sm,
-                                  lineHeight: 1.5, color: colors.textMuted,
-                                }}>
-                                  {c.summary}
-                                </p>
-                                {c.suggested_argument && (
-                                  <p style={{
-                                    ...serif, margin: `${spacing.xs}px 0 0`,
-                                    fontSize: font.sm, lineHeight: 1.5,
-                                    color: colors.textDim, fontStyle: 'italic',
-                                  }}>
-                                    {c.suggested_argument}
-                                  </p>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    <div style={{
-                      display: 'grid', gridTemplateColumns: '1fr 1fr',
-                      gap: spacing.md, marginBottom: spacing.lg,
-                    }}>
-                      {[
-                        { label: 'Best Moment', color: colors.info, content: report.sharpest_moment },
-                        { label: 'Biggest Gap', color: colors.warning, content: report.biggest_gap },
-                      ].map(({ label, color, content }) => (
-                        <div key={label} style={{
-                          background: colors.bgSurfaceAlt,
-                          borderRadius: radius.md, padding: spacing.md,
-                          borderTop: `2px solid ${color}`,
-                        }}>
-                          <SectionLabel color={color}>{label}</SectionLabel>
+                          <SectionLabel>Idea (as debated)</SectionLabel>
                           <p style={{
                             ...serif, color: colors.textMuted,
-                            fontSize: font.sm, lineHeight: 1.5, margin: 0,
+                            fontSize: font.md, lineHeight: 1.6, margin: 0,
                           }}>
-                            {content}
+                            {report.idea_summary}
                           </p>
                         </div>
-                      ))}
+                      )}
+
+                      <p style={{
+                        color: colors.textSecondary, fontSize: font.lg,
+                        lineHeight: 1.5, marginBottom: spacing.xl
+                      }}>
+                        {report.verdict}
+                      </p>
+
+                      <div style={{ marginBottom: spacing.lg }}>
+                        <SectionLabel color={colors.success}>Strengths</SectionLabel>
+                        {report.strengths.map((s, i) => (
+                          <div key={i} style={{
+                            display: 'flex', gap: spacing.sm,
+                            alignItems: 'flex-start', marginBottom: spacing.sm,
+                          }}>
+                            <span style={{ color: colors.success, marginTop: 2, flexShrink: 0 }}>✓</span>
+                            <p style={{ ...serif, margin: 0, fontSize: font.md, lineHeight: 1.5, color: colors.textMuted }}>
+                              {s}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div>
+                        <SectionLabel color={colors.accent}>Weaknesses</SectionLabel>
+                        {report.weaknesses.map((w, i) => (
+                          <div key={i} style={{
+                            display: 'flex', gap: spacing.sm,
+                            alignItems: 'flex-start', marginBottom: spacing.sm,
+                          }}>
+                            <span style={{ color: colors.accent, marginTop: 2, flexShrink: 0 }}>✗</span>
+                            <p style={{ ...serif, margin: 0, fontSize: font.md, lineHeight: 1.5, color: colors.textMuted }}>
+                              {w}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
-                    <div style={{
-                      background: '#0a1a0a',
-                      border: `1px solid #1a3a1a`,
-                      borderLeft: `3px solid ${colors.success}`,
-                      borderRadius: radius.md, padding: spacing.md,
-                    }}>
-                      <SectionLabel color={colors.success}>Next Steps</SectionLabel>
-                      <p style={{
-                        ...serif, color: colors.textMuted,
-                        fontSize: font.md, lineHeight: 1.5, margin: 0,
+                    {/* Page 2: Debate breakdown, best moment, biggest gap, next steps */}
+                    <div style={{ ...card }} data-pdf-page-break>
+
+                      {report.claim_events?.length > 0 && (
+                        <div style={{ marginBottom: spacing.lg }}>
+                          <SectionLabel>Debate Breakdown</SectionLabel>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                            {report.claim_events.map((c, i) => {
+                              const col = classificationColor(c.classification)
+                              return (
+                                <div key={i} style={{
+                                  borderLeft: `3px solid ${col.border}`,
+                                  padding: `${spacing.md}px ${spacing.md}px`,
+                                  borderBottom: i < report.claim_events.length - 1 ? `1px solid ${colors.border}` : 'none',
+                                }}>
+                                  <div style={{
+                                    display: 'flex', alignItems: 'center', gap: spacing.sm,
+                                    marginBottom: spacing.xs,
+                                  }}>
+                                    <span style={{ ...mono, fontSize: font.xs, fontWeight: 700, color: col.text }}>
+                                      {c.classification}
+                                    </span>
+                                    <span style={{ ...mono, fontSize: font.xs, color: colors.textDim }}>
+                                      {c.strength}/10
+                                    </span>
+                                  </div>
+                                  <p style={{
+                                    ...serif, margin: 0, fontSize: font.sm,
+                                    lineHeight: 1.5, color: colors.textMuted,
+                                  }}>
+                                    {c.summary}
+                                  </p>
+                                  {c.suggested_argument && (
+                                    <p style={{
+                                      ...serif, margin: `${spacing.xs}px 0 0`,
+                                      fontSize: font.sm, lineHeight: 1.5,
+                                      color: colors.textDim, fontStyle: 'italic',
+                                    }}>
+                                      {c.suggested_argument}
+                                    </p>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{
+                        display: 'grid', gridTemplateColumns: '1fr 1fr',
+                        gap: spacing.md, marginBottom: spacing.lg,
                       }}>
-                        {report.recommendation}
-                      </p>
+                        {[
+                          { label: 'Best Moment', color: colors.info, content: report.sharpest_moment },
+                          { label: 'Biggest Gap', color: colors.warning, content: report.biggest_gap },
+                        ].map(({ label, color, content }) => (
+                          <div key={label} style={{
+                            background: colors.bgSurfaceAlt,
+                            borderRadius: radius.md, padding: spacing.md,
+                            borderTop: `2px solid ${color}`,
+                          }}>
+                            <SectionLabel color={color}>{label}</SectionLabel>
+                            <p style={{
+                              ...serif, color: colors.textMuted,
+                              fontSize: font.sm, lineHeight: 1.5, margin: 0,
+                            }}>
+                              {content}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{
+                        background: '#0a1a0a',
+                        border: `1px solid #1a3a1a`,
+                        borderLeft: `3px solid ${colors.success}`,
+                        borderRadius: radius.md, padding: spacing.md,
+                      }}>
+                        <SectionLabel color={colors.success}>Next Steps</SectionLabel>
+                        <p style={{
+                          ...serif, color: colors.textMuted,
+                          fontSize: font.md, lineHeight: 1.5, margin: 0,
+                        }}>
+                          {report.recommendation}
+                        </p>
+                      </div>
                     </div>
-                  </div>
                   </>
                 ) : (
                   <div style={{ ...card }}>
@@ -877,10 +878,14 @@ export default function App() {
                     Export PDF
                   </GhostBtn>
                 )}
-                <PrimaryBtn onClick={resetSession}>
-                  NEW DEBATE
+                <PrimaryBtn
+                  onClick={resetSession}
+                  style={{ opacity: !reportReady ? 0.4 : 1, pointerEvents: !reportReady ? 'none' : 'auto' }}
+                >
+                  {!reportReady ? 'GENERATING...' : 'NEW DEBATE'}
                 </PrimaryBtn>
               </div>
+              <FeedbackWidget sessionId={sessionId} uid={user?.uid} claim={claim} />
             </div>
           )}
         </div>
@@ -922,7 +927,24 @@ export default function App() {
               <p style={{ ...mono, color: colors.textGhost }}>
                 Transcript will appear here...
               </p>
-            ) : (
+            ) : null}
+
+            {status === 'debating' && transcript.length > 0 && !transcript.some(t => t.speaker === 'agent') && Object.values(partials).every(v => !v) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg }}>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: colors.accent,
+                      animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                    }} />
+                  ))}
+                </div>
+                <span style={{ ...mono, color: colors.textFaint }}>Preparing argument...</span>
+              </div>
+            )}
+
+            {(transcript.length > 0 || Object.values(partials).some(v => v)) && (
               <>
                 {transcript.map((t, i) => (
                   <div key={i} style={{ marginBottom: spacing.lg }}>

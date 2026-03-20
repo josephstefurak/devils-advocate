@@ -1,0 +1,6 @@
+.env
+frontend/.env
+backend/.env
+**/firebase_key.json
+backend/venv/
+**/__pycache__/

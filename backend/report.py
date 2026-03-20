@@ -2,6 +2,7 @@ import os
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
+import asyncio
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -106,18 +107,21 @@ strengths and weaknesses must each have at least 2 items and no more than 4.
 """
 
     try:
-        response = await client.aio.models.generate_content(
-            model="gemini-3.1-flash-lite-preview",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_json_schema=ReportResult.model_json_schema(),
-                max_output_tokens=1500,
-            )
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model="gemini-3.1-flash-lite-preview",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_json_schema=ReportResult.model_json_schema(),
+                    max_output_tokens=4000,
+                ),
+            ),
+            timeout=30.0
         )
         report = ReportResult.model_validate_json(response.text)
         return report.model_dump()
-    except Exception as e:
+    except (Exception, asyncio.CancelledError) as e:
         print(f"Report generation error: {e}")
         return None
 
@@ -136,16 +140,19 @@ TRANSCRIPT:
 """
 
     try:
-        response = await client.aio.models.generate_content(
-            model="gemini-3.1-flash-lite-preview",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=JUDGE_PROMPT,
-                response_mime_type="application/json",
-                response_json_schema=JudgeResult.model_json_schema(),
-                temperature=0.2,
-                max_output_tokens=1024,
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model="gemini-3.1-flash-lite-preview",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=JUDGE_PROMPT,
+                    response_mime_type="application/json",
+                    response_json_schema=JudgeResult.model_json_schema(),
+                    temperature=0.2,
+                    max_output_tokens=4000,
+                ),
             ),
+            timeout=30.0
         )
 
         raw_text = (response.text or "").strip()
@@ -165,7 +172,7 @@ TRANSCRIPT:
                  + s["competitive_awareness"] + s["internal_coherence"]) / 5, 1
             )
         return result
-    except Exception as e:
+    except (Exception, asyncio.CancelledError) as e:
         print(f"Judge error: {e}")
         print(f"[Judge] Full response text: {response.text if response else 'no response'}")
         return None
