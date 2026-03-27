@@ -61,6 +61,9 @@ class SessionLogger:
         self.ref.update({
             "judge_result": result
         })
+    
+    def log_voice(self, voice_name: str):
+        self.ref.update({"voice": voice_name})
 
     def log_claim_event(self, event: dict):
         classification = event.get("classification", "").lower()

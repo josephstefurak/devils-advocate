@@ -30,6 +30,7 @@ from firebase_logger import SessionLogger
 from storage_utils import download_and_extract, delete_user_files
 from summary import summarize_documents
 from firebase_admin import auth as fb_auth
+from voice_selector import assign_voice
 
 MAX_SESSION_DURATION = 20 * 60  # 20 minutes
 MIN_TURNS_FOR_REPORT = 2  # require at least 2 user and 2 agent turns to generate report
@@ -173,6 +174,7 @@ async def start_session(sid, data):
             uid=uid,
             is_anonymous=is_anonymous
         )
+        voice = assign_voice(state.session_id, logger)
         async def on_audio(audio_b64):
             if not sessions.get(sid, {}).get('paused', False):
                 await sio.emit('agent_audio', audio_b64, to=sid)
@@ -275,6 +277,7 @@ async def start_session(sid, data):
             on_reasoning=on_reasoning,
             on_interrupted=on_interrupted,
             on_error=on_error,
+            voice_name=voice,
         )
         await gemini.connect()
 

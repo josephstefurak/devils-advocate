@@ -11,7 +11,7 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 MODEL = "gemini-2.5-flash-native-audio-latest"
 
 class GeminiLiveClient:
-    def __init__(self, system_prompt: str, on_text: callable, on_audio: callable, on_user_text: callable = None, on_reasoning: callable = None, on_grounding: callable = None, on_interrupted: callable = None, on_error: callable = None):
+    def __init__(self, system_prompt: str, on_text: callable, on_audio: callable, on_user_text: callable = None, on_reasoning: callable = None, on_grounding: callable = None, on_interrupted: callable = None, on_error: callable = None, voice_name="Charon"):
         self.system_prompt = system_prompt
         self.on_text = on_text
         self.on_audio = on_audio
@@ -23,6 +23,7 @@ class GeminiLiveClient:
         self.on_grounding = on_grounding
         self.on_interrupted = on_interrupted
         self.on_error = on_error
+        self.voice_name = voice_name
 
     async def connect(self):
         config = types.LiveConnectConfig(
@@ -32,7 +33,7 @@ class GeminiLiveClient:
             output_audio_transcription=types.AudioTranscriptionConfig(),
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Charon")
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=self.voice_name)
                 )
             ),
             tools=[
