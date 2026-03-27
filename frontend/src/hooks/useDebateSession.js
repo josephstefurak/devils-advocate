@@ -171,7 +171,7 @@ export function useDebateSession() {
     }
 
     // ── Start / End ────────────────────────────────────────────────
-    async function startDebate(claim, user, uploadedFiles) {
+    async function startDebate(claim, user, uploadedFiles, stage = 'late') {
         if (!audioContextRef.current) {
             audioContextRef.current = new AudioContext({ sampleRate: 24000 })
         }
@@ -197,6 +197,7 @@ export function useDebateSession() {
             idToken,
             isAnonymous: user.isAnonymous,
             documentPaths: uploadedFiles.map(f => f.path),
+            stage,
         })
     }
 

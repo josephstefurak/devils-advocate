@@ -292,6 +292,7 @@ export default function App() {
     useDocumentUpload(user, status === 'debating')
 
   const [claim, setClaim] = useState('')
+  const [stage, setStage] = useState('late')
   const [extracting, setExtracting] = useState(false)
   const [cachedExtractedClaim, setCachedExtractedClaim] = useState('')
   const [lastGeneratedPaths, setLastGeneratedPaths] = useState(null)
@@ -320,7 +321,7 @@ export default function App() {
     if (!authReady || !user) return alert('Auth not ready yet, try again')
     if (!claim.trim() && uploadedFiles.length === 0) return alert('Enter your position or upload documents to get started.')
     agentHasSpokenRef.current = false
-    await startDebate(claim.trim() || '', user, uploadedFiles)
+    await startDebate(claim.trim() || '', user, uploadedFiles, stage)
   }
 
   async function handleFillFromDocument() {
@@ -619,6 +620,41 @@ export default function App() {
               </div>
 
               {knowledgeBasePanel}
+
+              {/* ── Stage toggle ───────────────────────────────── */}
+              <div style={{ marginTop: spacing.lg }}>
+                <div style={{ ...mono, color: colors.textFaint, marginBottom: spacing.sm }}>
+                  IDEA STAGE
+                </div>
+                <div style={{ display: 'flex', gap: spacing.sm }}>
+                  {[
+                    { value: 'early', label: 'Early Stage', desc: 'Focus on the problem, audience & assumptions' },
+                    { value: 'late',  label: 'Late Stage',  desc: 'Focus on traction, metrics & execution proof' },
+                  ].map(({ value, label, desc }) => {
+                    const active = stage === value
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => setStage(value)}
+                        style={{
+                          flex: 1,
+                          padding: `${spacing.sm}px ${spacing.md}px`,
+                          borderRadius: radius.md,
+                          border: `1px solid ${active ? colors.accent : colors.border}`,
+                          background: active ? 'rgba(230,57,70,0.08)' : colors.bgSurface,
+                          color: active ? colors.accent : colors.textFaint,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'border-color 0.15s, color 0.15s, background 0.15s',
+                        }}
+                      >
+                        <div style={{ ...mono, fontSize: '0.7rem', marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: '0.75rem', color: active ? colors.textMuted : colors.textFaint, fontFamily: 'inherit' }}>{desc}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
               <div style={{ display: 'flex', gap: spacing.md, marginTop: spacing.lg, alignItems: 'center' }}>
                 <PrimaryBtn onClick={handleStartDebate}>

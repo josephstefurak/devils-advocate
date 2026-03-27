@@ -14,12 +14,13 @@ def _now():
     return datetime.utcnow()
 
 class SessionLogger:
-    def __init__(self, session_id: str, user_claim: str, uid: str = None, is_anonymous: bool = True):
+    def __init__(self, session_id: str, user_claim: str, uid: str = None, is_anonymous: bool = True, stage: str = "late"):
         self.session_id = session_id
         self.ref = db.collection("sessions").document(session_id)
         self.ref.set({
             "session_id": session_id,
             "user_claim": user_claim,
+            "stage": stage,
             "created_at": _now(),
             "ended_at": None,
             "consent_given": True,  # default to True until user explicitly updates it
