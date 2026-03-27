@@ -17,16 +17,50 @@ from firebase_logger import SessionLogger
 # Update this list as Google adds/removes voices.
 
 AVAILABLE_VOICES = [
-    "Puck",
-    "Charon",
-    "Kore",
+    # Bright
+    "Zephyr", "Autonoe",
+    # Upbeat
+    "Puck", "Laomedeia",
+    # Firm
+    "Kore", "Orus", "Alnilam",
+    # Excitable
     "Fenrir",
+    # Breezy
     "Aoede",
-    "Orbit",
-    "Zephyr",
+    # Easy-going
+    "Umbriel", "Callirrhoe",
+    # Clear
+    "Erinome", "Iapetus",
+    # Breathy
+    "Enceladus",
+    # Smooth
+    "Algieba", "Despina",
+    # Gravelly
+    "Algenib",
+    # Soft
+    "Achernar",
+    # Mature
+    "Gacrux",
+    # Casual
+    "Zubenelgenubi",
+    # Knowledgeable
+    "Sadaltager",
+    # Informative
+    "Charon", "Rasalgethi",
+    # Youthful
     "Leda",
-    "Orus",
+    # Even
     "Schedar",
+    # Friendly
+    "Achird",
+    # Lively
+    "Sadachbia",
+    # Forward
+    "Pulcherrima",
+    # Gentle
+    "Vindemiatrix",
+    # Warm
+    "Sulafat",
 ]
 
 
