@@ -28,6 +28,7 @@ class SessionState:
     committed_position: str = ""
     claim_events: list = field(default_factory=list)
     turn_count: int = 0
+    stage: str = "late"
     session_id: str = field(
         default_factory=lambda: datetime.utcnow().strftime("%Y%m%d_%H%M%S_") + str(uuid.uuid4())[:8]
     )
@@ -58,6 +59,7 @@ class SessionState:
         return {
             "session_id": self.session_id,
             "user_claim": self.user_claim,
+            "stage": self.stage,
             "turn_count": self.turn_count,
             "started_at": self.started_at,
             "turns": [

@@ -127,6 +127,7 @@ async def start_session(sid, data):
 
     claim_raw = (data.get('claim') or '').strip()
     document_paths_raw = data.get('documentPaths', [])
+    stage = data.get('stage', 'late') if data.get('stage') in ('early', 'late') else 'late'
     if not claim_raw and not document_paths_raw:
         await sio.emit(
             'error',
@@ -165,14 +166,15 @@ async def start_session(sid, data):
     print(f"Starting session for {sid}, uid: {uid}, anonymous: {is_anonymous}, claim: {claim or '(from documents)'}")
 
     try:
-        state = SessionState(user_claim=claim)
-        system_prompt = build_system_prompt(claim)
+        state = SessionState(user_claim=claim, stage=stage)
+        system_prompt = build_system_prompt(claim, stage=stage)
 
         logger = SessionLogger(
             session_id=state.session_id,
             user_claim=claim,
             uid=uid,
-            is_anonymous=is_anonymous
+            is_anonymous=is_anonymous,
+            stage=stage,
         )
         voice = assign_voice(state.session_id, logger)
         async def on_audio(audio_b64):
@@ -254,13 +256,14 @@ async def start_session(sid, data):
                         'message': 'Could not summarize your documents. Try adding a short description above.'
                     }, to=sid)
                     return
-                state = SessionState(user_claim=claim)
-                system_prompt = build_system_prompt(claim)
+                state = SessionState(user_claim=claim, stage=stage)
+                system_prompt = build_system_prompt(claim, stage=stage)
                 logger = SessionLogger(
                     session_id=state.session_id,
                     user_claim=claim,
                     uid=uid,
-                    is_anonymous=is_anonymous
+                    is_anonymous=is_anonymous,
+                    stage=stage,
                 )
         rag.ingest_documents(participant_id, texts=doc_texts, metadatas=doc_metas)
 
@@ -299,6 +302,7 @@ async def start_session(sid, data):
             'started_at': time.time(),
             'consent': True,
             'paused': False,
+            'stage': stage,
         }
 
         await asyncio.sleep(0.1) # slight delay to ensure client is ready for incoming messages
