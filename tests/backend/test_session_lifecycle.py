@@ -100,7 +100,8 @@ class TestSessionLifecycle:
             "claim": "",
             "idToken": "fake_token",
             "isAnonymous": True,
-            "documentPaths": []
+            "documentPaths": [],
+            "stage": "early"
         })
 
         event = await client.receive(timeout=3)
@@ -117,7 +118,8 @@ class TestSessionLifecycle:
             "claim": "I want to build a B2B SaaS for HR teams",
             "idToken": "fake_token",
             "isAnonymous": True,
-            "documentPaths": ["users/other-user/documents/pitch.pdf"]
+            "documentPaths": ["users/other-user/documents/pitch.pdf"],
+            "stage": "early"
         })
 
         error_event = None
@@ -130,6 +132,54 @@ class TestSessionLifecycle:
         assert error_event is not None, "Never received error event"
         assert "invalid uploaded document reference" in error_event[1]["message"].lower()
 
+        await client.disconnect()
+
+    async def test_invalid_stage_falls_back_gracefully(self, patched_server):
+        """An unrecognised stage value must not crash the session."""
+        client = socketio.AsyncSimpleClient()
+        await client.connect(f"http://127.0.0.1:{SERVER_PORT}")
+
+        await client.emit("start_session", {
+            "claim": "I want to build an AI HR tool",
+            "idToken": "fake_token",
+            "isAnonymous": True,
+            "documentPaths": [],
+            "stage": "seed"  # invalid value — should fall back to 'late'
+        })
+
+        session_ready = False
+        for _ in range(10):
+            event = await client.receive(timeout=3)
+            if event[0] == "session_ready":
+                session_ready = True
+                break
+            if event[0] == "error":
+                break
+
+        assert session_ready, "Invalid stage value caused an error instead of falling back to late"
+        await client.disconnect()
+
+    async def test_missing_stage_key_starts_session(self, patched_server):
+        """Missing stage should behave identically to stage='late'."""
+        client = socketio.AsyncSimpleClient()
+        await client.connect(f"http://127.0.0.1:{SERVER_PORT}")
+
+        await client.emit("start_session", {
+            "claim": "I want to build an AI HR tool",
+            "idToken": "fake_token",
+            "isAnonymous": True,
+            "documentPaths": []
+            # no 'stage'
+        })
+
+        session_ready = False
+        for _ in range(10):
+            event = await client.receive(timeout=3)
+            if event[0] == "session_ready":
+                session_ready = True
+                break
+
+        assert session_ready, "Missing stage key broke session start"
         await client.disconnect()
 
     async def test_rate_limit_enforced(self, patched_server):
