@@ -23,13 +23,13 @@ class SessionLogger:
             "stage": stage,
             "created_at": _now(),
             "ended_at": None,
-            "consent_given": True,  # default to True until user explicitly updates it
+            "consent_given": True,
             "user": {
                 "uid": uid or "unknown",
                 "is_anonymous": is_anonymous,
             },
             "turns": [],
-            "claim_events": [],
+            "judge_updates": [],
             "report": None,
             "metrics": {
                 "total_turns": 0,
@@ -57,16 +57,16 @@ class SessionLogger:
             f"metrics.total_turns": firestore.Increment(1),
             f"metrics.{'user' if speaker == 'user' else 'agent'}_turns": firestore.Increment(1),
         })
-    
+
     def log_judge(self, result: dict):
         self.ref.update({
             "judge_result": result
         })
-    
+
     def log_voice(self, voice_name: str):
         self.ref.update({"voice": voice_name})
 
-    def log_claim_event(self, event: dict):
+    def log_judge_update(self, event: dict):
         classification = event.get("classification", "").lower()
         strength = event.get("strength", 0)
 
@@ -79,7 +79,7 @@ class SessionLogger:
         metric_key = metric_key_map.get(classification)
 
         update = {
-            "claim_events": firestore.ArrayUnion([{
+            "judge_updates": firestore.ArrayUnion([{
                 **event,
                 "timestamp": _now(),
             }]),
@@ -110,7 +110,6 @@ class SessionLogger:
             "ended_at": _now(),
             "consent_given": consent_given,
         })
-        # If no consent — delete the document entirely
         if not consent_given:
             self.ref.delete()
             print(f"[Firebase] Session {self.session_id} deleted — no consent")
