@@ -13,9 +13,9 @@ from fastapi.responses import JSONResponse
 from gemini_client import GeminiLiveClient
 from session_state import SessionState
 from prompts import build_system_prompt, build_rag_context
-from claim_tracker import classify_turn
 from rag import rag
-from report import generate_report, run_judge
+from report import generate_report
+from judges import build_judge_panel, run_live_judge_update, run_judge_panel, merge_verdicts
 from google import genai as genai_client
 
 from validation import (
@@ -64,7 +64,7 @@ app.add_middleware(CORSMiddleware,
 )
 
 # ── Active sessions store ──────────────────────────────────────────
-# { socket_id: { gemini: GeminiLiveClient, state: SessionState } }
+# { socket_id: { gemini: GeminiLiveClient, state: SessionState, judges: dict[str, OpenAIClient] } }
 sessions = {}
 last_retrieval = {}
 
@@ -204,19 +204,21 @@ async def start_session(sid, data):
                     logger.log_turn('user', text, state.turn_count)
                 except Exception as e:
                     print(f"Logging error (on_user_text): {e}")
-                async def on_claim_result(result):
-                    state.add_claim_event(text, result)
-                    await sio.emit('claim_update', result, to=sid)
-                    try:
-                        logger.log_claim_event(result)
-                    except Exception as e:
-                        print(f"Logging error (on_claim_result): {e}")
-                asyncio.create_task(classify_turn(
-                    original_claim=state.user_claim,
-                    context=state.get_recent_context(n=6),
-                    user_turn=text,
-                    on_result=on_claim_result
-                ))
+
+                async def _judge_turn(user_text):
+                    judges = sessions.get(sid, {}).get('judges')
+                    if not judges:
+                        return
+                    result = await run_live_judge_update(judges, state, user_text)
+                    if result:
+                        state.add_judge_update(user_text, result)
+                        await sio.emit('claim_update', result, to=sid)
+                        try:
+                            logger.log_judge_update(result)
+                        except Exception as e:
+                            print(f"Logging error (_judge_turn): {e}")
+
+                asyncio.create_task(_judge_turn(text))
 
         async def on_reasoning(text):
             #await sio.emit('transcript', {'speaker': 'reasoning', 'text': text}, to=sid)
@@ -291,10 +293,14 @@ async def start_session(sid, data):
         if rag_context:
             await gemini.send_context(build_rag_context(rag_context))
 
-        # 4. Show claim in transcript and send to agent — now fully context-aware
+        # 4. Build judge panel for this session's stage
+        judge_panel = build_judge_panel(stage)
+
+        # 5. Show claim in transcript and send to agent — now fully context-aware
         sessions[sid] = {
             'gemini': gemini,
             'state': state,
+            'judges': judge_panel,
             'participant_id': participant_id,
             'is_anonymous': is_anonymous,
             'document_paths': document_paths,
@@ -406,26 +412,29 @@ async def end_session(sid):
         await sio.disconnect(sid)
         return
 
-    # Sequential with retry to avoid concurrent 429 quota burst
-    judge_result = None
+    judges = session.get('judges', {})
+    verdicts = []
     report = None
 
     try:
-        judge_result = await with_retry(lambda: run_judge(state))
+        verdicts = await with_retry(lambda: run_judge_panel(judges, state))
     except Exception as e:
-        print(f"Judge failed after retries: {e}")
+        print(f"Judge panel failed after retries: {e}")
+
+    merged = merge_verdicts(verdicts)
+    consensus = merged.get("consensus") if merged else None
+
+    if consensus:
+        await sio.emit('judge_result', consensus, to=sid)
+        session['logger'].log_judge(merged)
 
     try:
-        report = await with_retry(lambda: generate_report(state))
+        report = await with_retry(lambda: generate_report(state, verdicts))
     except Exception as e:
         print(f"Report failed after retries: {e}")
 
-    if judge_result:
-        await sio.emit('judge_result', judge_result, to=sid)
-        session['logger'].log_judge(judge_result)
-
-    claim_events_list = state.to_dict()["claim_events"]
-    payload = {**report, "claim_events": claim_events_list} if report else None
+    judge_updates_list = state.to_dict()["judge_updates"]
+    payload = {**report, "claim_events": judge_updates_list} if report else None
     await sio.emit('debate_report', payload, to=sid)  # always emits — fixes spinner hang
     if report:
         session['logger'].log_report(report)
