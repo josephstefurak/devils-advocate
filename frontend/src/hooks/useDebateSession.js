@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { io } from 'socket.io-client'
-import { colors, font } from '../theme'
+import { colors } from '../theme'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
 
@@ -341,7 +341,11 @@ export function useDebateSession() {
 
     function interruptAgent() {
         activeSourcesRef.current.forEach(source => {
-            try { source.stop() } catch { }
+            try {
+                source.stop()
+            } catch (error) {
+                void error
+            }
         })
         activeSourcesRef.current = []
         nextAudioTimeRef.current = 0
@@ -351,7 +355,7 @@ export function useDebateSession() {
     }
 
     // ── PDF export ─────────────────────────────────────────────────
-    async function exportToPDF(reportRef, { report, claim } = {}) {
+    async function exportToPDF(reportRef, { report } = {}) {
         if (!reportRef?.current) return
         const { default: jsPDF } = await import('jspdf')
         const { default: html2canvas } = await import('html2canvas')

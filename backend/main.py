@@ -1,14 +1,15 @@
 import asyncio
-from email.mime import message
 import os
 import time
 import re
 
 from dotenv import load_dotenv
 import socketio
+from fastapi.encoders import jsonable_encoder
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 from gemini_client import GeminiLiveClient
 from session_state import SessionState
@@ -26,7 +27,8 @@ from validation import (
     MAX_CLAIM_LENGTH,
 )
 from rate_limiter import limiter
-from firebase_logger import SessionLogger
+from feedback import FeedbackSubmissionRequest, build_feedback_record
+from firebase_logger import SessionLogger, save_post_debate_feedback
 from storage_utils import download_and_extract, delete_user_files
 from summary import summarize_documents
 from firebase_admin import auth as fb_auth
@@ -440,6 +442,35 @@ async def set_consent(sid, data):
         return
     sessions[sid]['consent'] = data.get('consent', True)
     print(f"Consent updated for {sid}: {sessions[sid]['consent']}")
+
+
+@app.post("/session_feedback")
+async def session_feedback(request: Request):
+    try:
+        payload = FeedbackSubmissionRequest.model_validate(await request.json())
+    except ValidationError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Invalid feedback payload.", "details": jsonable_encoder(exc.errors())},
+        )
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    try:
+        decoded = fb_auth.verify_id_token(payload.idToken)
+        uid = decoded["uid"]
+    except Exception:
+        return JSONResponse(status_code=401, content={"error": "Authentication failed."})
+
+    try:
+        feedback_record = build_feedback_record(payload.feedback)
+        save_post_debate_feedback(payload.sessionId, uid, feedback_record)
+    except ValueError as exc:
+        return JSONResponse(status_code=404, content={"error": str(exc)})
+    except PermissionError as exc:
+        return JSONResponse(status_code=403, content={"error": str(exc)})
+
+    return JSONResponse(content={"ok": True})
 
 # ── REST: extract a claim summary from uploaded documents ──────────
 _genai = genai_client.Client(api_key=os.getenv("GEMINI_API_KEY"))

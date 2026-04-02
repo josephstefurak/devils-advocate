@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { colors, font, spacing, radius } from './theme'
 
 // ── 1. Mic Volume Visualizer ────────────────────────────────────

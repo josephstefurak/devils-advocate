@@ -10,32 +10,32 @@ export function useDocumentUpload(user, isDebating) {
     // Load existing files whenever user changes
     useEffect(() => {
         if (!user) return
-        loadExistingFiles()
-    }, [user?.uid])
+        async function loadExistingFiles() {
+            setLoadingFiles(true)
+            try {
+                const folderRef = ref(storage, `users/${user.uid}/documents/`)
+                const list = await listAll(folderRef)
 
-    async function loadExistingFiles() {
-        setLoadingFiles(true)
-        try {
-            const folderRef = ref(storage, `users/${user.uid}/documents/`)
-            const list = await listAll(folderRef)
-
-            const files = await Promise.all(
-                list.items
-                    // Filter out general knowledge base docs
-                    .filter(item => !item.name.includes('GENERALDOCAUTO_'))
-                    .map(async (item) => {
-                        const meta = await getMetadata(item)
-                        const filename = item.name.split('_').slice(1).join('_') || item.name
-                        return { name: filename, path: item.fullPath, size: meta.size }
-                    })
-            )
-            setUploadedFiles(files)
-        } catch (err) {
-            // Folder doesn't exist yet — fine
-        } finally {
-            setLoadingFiles(false)
+                const files = await Promise.all(
+                    list.items
+                        // Filter out general knowledge base docs
+                        .filter(item => !item.name.includes('GENERALDOCAUTO_'))
+                        .map(async (item) => {
+                            const meta = await getMetadata(item)
+                            const filename = item.name.split('_').slice(1).join('_') || item.name
+                            return { name: filename, path: item.fullPath, size: meta.size }
+                        })
+                )
+                setUploadedFiles(files)
+            } catch {
+                // Folder doesn't exist yet — fine
+            } finally {
+                setLoadingFiles(false)
+            }
         }
-    }
+
+        loadExistingFiles()
+    }, [user])
 
     async function uploadFile(file) {
         if (!user || isDebating) return
@@ -68,8 +68,8 @@ export function useDocumentUpload(user, isDebating) {
         try {
             await deleteObject(ref(storage, filePath))
             setUploadedFiles(prev => prev.filter(f => f.path !== filePath))
-        } catch (err) {
-            console.error('Delete error:', err)
+        } catch (error) {
+            console.error('Delete error:', error)
         }
     }
 
@@ -80,7 +80,7 @@ export function useDocumentUpload(user, isDebating) {
             const list = await listAll(folderRef)
             await Promise.all(list.items.map(item => deleteObject(item)))
             setUploadedFiles([])
-        } catch (err) {
+        } catch {
             // Fine
         }
     }

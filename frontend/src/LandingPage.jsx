@@ -32,8 +32,11 @@ function Typewriter() {
                 const t = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 22)
                 return () => clearTimeout(t)
             } else {
-                setLineIndex((lineIndex + 1) % CHALLENGES.length)
-                setTyping(true)
+                const t = setTimeout(() => {
+                    setLineIndex((prev) => (prev + 1) % CHALLENGES.length)
+                    setTyping(true)
+                }, 0)
+                return () => clearTimeout(t)
             }
         }
     }, [displayed, typing, lineIndex])

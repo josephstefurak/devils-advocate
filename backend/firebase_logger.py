@@ -13,6 +13,26 @@ db = firestore.client()
 def _now():
     return datetime.utcnow()
 
+
+def save_post_debate_feedback(session_id: str, uid: str, feedback: dict):
+    ref = db.collection("sessions").document(session_id)
+    snapshot = ref.get()
+    session_doc = snapshot.to_dict() if snapshot else None
+
+    if not session_doc:
+        raise ValueError("Session not found or research data was discarded.")
+    if session_doc.get("consent_given") is not True:
+        raise PermissionError("Research consent is disabled for this session.")
+    if session_doc.get("user", {}).get("uid") != uid:
+        raise PermissionError("You do not have access to this session.")
+
+    ref.update({
+        "post_debate_feedback": {
+            **feedback,
+            "submitted_at": _now(),
+        },
+    })
+
 class SessionLogger:
     def __init__(self, session_id: str, user_claim: str, uid: str = None, is_anonymous: bool = True, stage: str = "late"):
         self.session_id = session_id

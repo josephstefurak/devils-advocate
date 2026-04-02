@@ -116,6 +116,18 @@ To run the full system locally, you need access to the shared Firebase and Googl
 - Firebase Auth providers enabled for `Anonymous`, `Google`, and `GitHub`
 - Authorized Firebase Auth domains for `localhost`, `127.0.0.1`, and the deployed hosting domains
 
+### Local Cost Isolation
+
+If you manually test full debates locally with the shared Firebase and Gemini credentials, you will still hit the shared project resources and billing surfaces. Static checks, mocked tests, and frontend unit tests are low risk; real end-to-end sessions are not.
+
+To isolate local testing onto your own project instead of the shared deployment resources, swap these values before running the app:
+
+- `frontend/.env.local`: your own Firebase web app config values
+- `backend/.env`: your own `GEMINI_API_KEY`, `FIREBASE_KEY_PATH`, and `FIREBASE_STORAGE_BUCKET`
+- `backend/firebase_key.json`: your own Firebase Admin SDK service account JSON, or another path referenced by `FIREBASE_KEY_PATH`
+
+Your Firebase project also needs Firestore enabled, Firebase Storage enabled, Auth providers for `Anonymous`, `Google`, and `GitHub` if you want parity, and authorized domains for `localhost` and `127.0.0.1`.
+
 ### 1. Clone The Repo
 
 ```bash
