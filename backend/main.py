@@ -267,7 +267,9 @@ async def start_session(sid, data):
                     is_anonymous=is_anonymous,
                     stage=stage,
                 )
-        rag.ingest_documents(participant_id, texts=doc_texts, metadatas=doc_metas)
+        await asyncio.get_event_loop().run_in_executor(
+            None, rag.ingest_documents, participant_id, doc_texts, doc_metas
+        )
 
         async def on_error(message):
             await sio.emit('error', {'message': message}, to=sid)
@@ -357,7 +359,7 @@ async def audio_chunk(sid, data):
     current_turn = session['state'].turn_count
     if last_retrieval.get(sid) != current_turn and current_turn > 0:
         last_retrieval[sid] = current_turn
-        recent = session['state'].get_recent_context(n=2)
+        recent = session['state'].get_recent_context(n=4)
         rag_context = rag.retrieve(session['participant_id'], recent, n_results=8)
         if rag_context:
             msg = build_rag_context(rag_context)

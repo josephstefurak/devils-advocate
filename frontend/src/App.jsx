@@ -37,7 +37,7 @@ const card = {
   padding: spacing.xl,
 }
 
-const CLAIM_CHARACTER_LIMIT = 500
+const CLAIM_CHARACTER_LIMIT = 750
 
 // ── Small reusable components ──────────────────────────────────
 function Spinner() {
@@ -651,7 +651,7 @@ export default function App() {
                   }} />
                   {[
                     { value: 'early', label: "I'm exploring an idea" },
-                    { value: 'late',  label: "I have traction & data" },
+                    { value: 'late', label: "I have traction & data" },
                   ].map(({ value, label }) => {
                     const active = stage === value
                     const hovered = hoveredStage === value

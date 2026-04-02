@@ -16,13 +16,22 @@ _client = chromadb.EphemeralClient()
 _BASE_CHUNKS: list[str] = []
 _BASE_METAS: list[dict] = []
 
+def _warm_up_embeddings():
+    try:
+        tmp = _client.get_or_create_collection("warmup-init", embedding_function=embedding_fn)
+        tmp.upsert(documents=["warmup"], ids=["warmup0"])
+        _client.delete_collection("warmup-init")
+        print("[RAG] Embedding model warmed up")
+    except Exception as e:
+        print(f"[RAG] Warmup failed (non-fatal): {e}")
+
 def _load_base_knowledge():
     global _BASE_CHUNKS, _BASE_METAS
     for filepath in glob.glob(os.path.join(KNOWLEDGE_DIR, "*.txt")):
         with open(filepath, encoding='utf-8', errors='ignore') as f:
             text = f.read()
         words = text.split()
-        chunks = [" ".join(words[i:i+300]) for i in range(0, len(words), 250)]
+        chunks = [" ".join(words[i:i+400]) for i in range(0, len(words), 300)]
         for chunk in chunks:
             clean = chunk.encode('utf-8', errors='ignore').decode('utf-8').replace('\x00', '').strip()
             if clean:
@@ -31,6 +40,7 @@ def _load_base_knowledge():
     print(f"[RAG] Loaded {len(_BASE_CHUNKS)} base knowledge chunks")
 
 _load_base_knowledge()  # runs once on import
+_warm_up_embeddings()  # runs once on import
 
 
 class ChromaBackend(RAGBackend):

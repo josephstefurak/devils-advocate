@@ -1,0 +1,47 @@
+GO-TO-MARKET & DISTRIBUTION — DEBATE KNOWLEDGE BASE
+=====================================================
+
+PRODUCT-LED GROWTH (PLG) VS. SALES-LED: WHEN EACH WORKS
+- PLG requires: (a) a product simple enough to self-serve, (b) a free or low-friction entry point, (c) viral or network mechanics that drive organic spread, and (d) clear expansion revenue once the user is hooked.
+- PLG fails when: the product requires implementation effort (enterprise setup, integrations, onboarding), the buyer is not the user, or the ACV is too low to fund a sales motion and too high to scale without one.
+- Sales-led growth requires: a defined ICP, repeatable discovery and demo scripts, and a sales cycle shorter than runway allows. Enterprise ACV of $25K+ typically justifies a sales-led motion.
+- Hybrid (PLG + sales): works when free/individual adoption creates a bottom-up beachhead, then enterprise sales expands seats. Slack, Figma, and Notion all used this model. Requires deliberate product instrumentation to identify expansion signals.
+- The most common mistake: assuming PLG is free. Viral growth loops require engineering investment, onboarding design, and product analytics that most early-stage companies underinvest in.
+
+IDEAL CUSTOMER PROFILE (ICP) FAILURE MODES
+- "Our customer is any company with more than 10 employees" is not an ICP — it's a market. An ICP specifies industry, company size, org structure, trigger event, and the specific pain owner.
+- Broad ICPs produce low conversion: sales reps waste cycles on leads who will never buy. Narrow ICPs produce fast learning: every lost deal teaches you something specific.
+- The most common ICP mistake at pre-Series A: confusing "people who were excited in a demo" with "people who will pay and retain." These are frequently different populations.
+- ICP drift is fatal at scale: when early customers are bought with discounts, founder relationships, or product customization unavailable to later customers, the sales motion cannot be repeated by a sales team.
+
+CHANNEL STRATEGY AND WHY FOUNDERS IGNORE IT
+- A great product with no channel strategy dies. A mediocre product with a dominant channel survives. Distribution is often more durable than product quality.
+- Channel options: direct sales, inbound content marketing, partnerships/integrations, influencer/community, resellers/VARs, marketplace listings (App Store, Salesforce AppExchange, AWS Marketplace).
+- The single biggest channel mistake: assuming "we'll figure out distribution after we build it." Channel development takes 12–24 months to show results and cannot be bolted on post-fundraising.
+- B2B integration channels (being listed on Salesforce AppExchange or HubSpot Marketplace) can be a meaningful distribution lever — but require 6–12 months of certification work and a dedicated partner success motion.
+- Content marketing as a channel: effective for inbound SaaS where the buyer is searching for a solution. Ineffective for categories the buyer doesn't know they need yet.
+
+ENTERPRISE SALES MOTION REALITY
+- Average enterprise software deal cycle: 6–9 months from first meeting to signed contract. Complex deals (ERP, security, infrastructure) routinely take 12–18 months.
+- A startup with 6 months of runway and no enterprise revenue already signed is not an enterprise company — it's a startup about to die while chasing enterprise.
+- Enterprise deals have multiple stakeholders: economic buyer (signs the check), champion (internal advocate), end users (must adopt it), legal (must approve the contract), IT/security (must approve integration). Losing any one of these kills the deal.
+- Pilot trap: enterprise buyers often use "let's run a pilot" to delay commitment. Pilots without defined success criteria, executive sponsorship, and a signed path-to-paid are free work, not sales pipeline.
+- Net new enterprise logos in year 1 for a well-funded startup with 5 SDRs: realistically 10–40 accounts. Pitch decks projecting 200 enterprise customers in year 1 have never run an enterprise sales motion.
+
+VIRAL COEFFICIENTS AND GROWTH LOOPS
+- Viral coefficient (K-factor): each existing user invites K new users. K > 1 = exponential growth. K < 1 = growth requires paid acquisition to sustain. Most consumer apps have K = 0.1–0.4.
+- True virality is rare and product-specific. WhatsApp (K > 1 in key markets), Zoom (meeting invites force downloads), Dropbox (shared folders). Most products that claim virality are describing referral programs, not organic loops.
+- Growth loops vs. funnels: funnels are linear (acquisition → activation → revenue). Growth loops are circular (acquisition → activation → output that drives re-acquisition). Loops compound; funnels don't.
+- The most durable growth loops: (1) user creates something shareable → share drives acquisition, (2) user invites collaborator → collaborator becomes user, (3) user's network joins → network effect compounds value.
+- Referral programs are not growth loops. Offering $10 for a referral is paid acquisition with a delay. It has a K-factor and a payback period — it is not organic virality.
+
+LAND AND EXPAND: MATH AND FAILURE MODES
+- Land and expand requires: (a) a product that delivers value at small footprint (1 team, 1 use case), (b) natural expansion triggers (more users, more data, more use cases), and (c) an account management motion to drive expansion.
+- NRR (Net Revenue Retention) > 120% is the signal that land-and-expand is working. Below 100% means expansion is not covering churn — the model is broken.
+- Most startups that claim land-and-expand as their strategy have never modeled what the account management headcount costs relative to the expansion revenue generated.
+- Seat-based expansion is the most common model but also the most fragile: enterprise buyers negotiate site licenses to cap seat costs once they see expansion coming.
+
+GO-TO-MARKET TIMING
+- "We'll launch when the product is ready" is not a GTM strategy. By the time a product feels ready internally, 12–18 months of distribution-building has been lost.
+- The best time to start building distribution is before you need it: publishing content, building partnerships, hiring a first sales rep on a founder-led pipeline.
+- First 100 customers benchmark: if it took 18+ months to get to 100 customers, the GTM motion is broken. If it took 6 months, validate whether those customers are retaining before scaling acquisition.

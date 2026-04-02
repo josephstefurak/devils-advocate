@@ -31,9 +31,9 @@ class RateLimiter:
         return True
 
     def check_audio_chunk(self, sid: str) -> bool:
-        """Max 200 audio chunks per second per session (worklet sends ~50/s normally)"""
+        """Max 500 audio chunks per second per session (worklet sends ~50/s normally)"""
         self._audio_chunks[sid] = self._clean_window(self._audio_chunks[sid], 1)
-        if len(self._audio_chunks[sid]) >= 200:
+        if len(self._audio_chunks[sid]) >= 500:
             return False
         self._audio_chunks[sid].append(time.time())
         return True

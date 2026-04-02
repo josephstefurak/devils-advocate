@@ -1,0 +1,44 @@
+CONSUMER RETENTION & GROWTH — DEBATE KNOWLEDGE BASE
+=====================================================
+
+THE RETENTION CLIFF
+- Consumer app retention benchmarks (Andreessen Horowitz, 2023): Day 1 retention = 25–40% for strong apps. Day 7 = 10–20%. Day 30 = 5–10%. Most consumer apps are dead if Day 30 retention is below 5%.
+- Social apps retain better (DAU/MAU of 50%+ for top apps). Utility apps retain through habit (calendars, payments). Entertainment apps (games, streaming) suffer from content fatigue.
+- The retention cliff: most consumer apps lose 60–80% of users within the first 3 days. If users don't find core value in session 1–2, they never return. Onboarding is not a UX problem — it's a business survival problem.
+- Pinterest reached 100M users with Day 30 retention of ~28%. Instagram at equivalent scale had Day 30 retention of ~35%. Both are considered top-tier. Median consumer app: 3–6% Day 30.
+
+HABIT FORMATION AND BEHAVIOR CHANGE
+- Consumer apps that require behavior change are structurally harder to retain than apps that slot into existing behavior patterns.
+- The Hook Model (Nir Eyal): Trigger → Action → Variable Reward → Investment. Apps that complete this loop reliably create habits. Apps that skip the variable reward (predictable = boring) or the investment phase (no sunk cost) churn users.
+- Duolingo's retention is built on streaks (investment/loss aversion), notifications tuned to guilt, and variable reward (lesson variety). The mechanics are deliberate, not accidental.
+- Behavior change apps (fitness, nutrition, meditation) face a structural ceiling: the user's goal is to no longer need the app. Retention models that don't account for goal completion as a churn event are built on wishful thinking.
+- Apps targeting habits that don't yet exist (daily journaling, mindful screen time) face the additional burden of creating the behavior before they can retain around it.
+
+DAU/MAU AS A SIGNAL AND ITS LIMITS
+- DAU/MAU (Daily Active Users / Monthly Active Users) measures stickiness: what fraction of monthly users return daily.
+- Benchmarks by category: social/messaging = 50–70% (Facebook, WhatsApp). News/media = 20–30%. Utilities = 10–25%. Games = 20–40%. E-commerce = 3–7%.
+- DAU/MAU is a lagging indicator — it looks healthy until retention collapse hits. A shrinking new user cohort masks declining DAU/MAU for months.
+- The critical distinction: DAU/MAU measures frequency, not value. A user who opens an app 5 times a day for 30 seconds may be less valuable than a user who opens it once a week for 30 minutes.
+
+CONSUMER MONETIZATION BENCHMARKS
+- Mobile app ARPU (Average Revenue Per User) benchmarks: gaming = $2–8/month per paying user. Streaming = $10–20/month. Productivity = $5–15/month. Social = $0.10–0.50/month (ad-supported).
+- In-app purchase conversion for mobile games: top games convert 2–5% of users to payers. Median free-to-play game: under 1% conversion.
+- Consumer subscription pricing anchoring: pricing above $15/month for a non-essential consumer app requires a very clear "must-have" narrative. $7–10/month is the consumer tolerance ceiling for discretionary apps in 2024.
+- Ad-supported consumer models require significant scale to be meaningful: CPM rates for in-app display ads average $1–5. A million monthly active users generating 10 ad impressions each = 10M impressions = $10K–$50K revenue per month. This is not a business at small scale.
+
+GROWTH LOOPS SPECIFIC TO CONSUMER
+- Content creation loops: users create content → content is discoverable → discovery drives new user acquisition (TikTok, YouTube, Pinterest). Requires a critical mass of content before the loop generates meaningful inbound acquisition.
+- Social graph loops: users invite contacts → contacts join → richer experience drives more invitations (Facebook 2006, LinkedIn 2004). Requires the app to be more valuable with contacts present.
+- Utility loops: user does a task → outcome is shareable or visible → sharing drives downloads (Canva designs, Wordle results). Requires the output of using the product to be naturally share-worthy.
+- Notification-driven re-engagement: push notifications are the most effective re-engagement tool for consumer apps, but also the most abused. Opt-out rates exceed 60% when notifications are irrelevant. Lost notification permission is a leading indicator of churn.
+
+PAID ACQUISITION FOR CONSUMER: THE MATH
+- CAC on Meta for consumer apps averaged $3–15 per install in 2023 depending on category and targeting. Post-iOS 14 ATT, attribution degradation inflated effective CAC 30–60%.
+- Payback period math: a $5/month consumer subscription app with 50% gross margin generates $2.50/month contribution. At $10 CAC, payback = 4 months (acceptable). At $30 CAC, payback = 12 months (requires very high Day 90 retention to survive).
+- App Store optimization (ASO) is often underinvested relative to paid acquisition. Top 3 position for a relevant keyword can drive equivalent volume to $20K/month in Meta spend at zero marginal cost.
+- The paid acquisition trap for consumer: apps that are only growing through paid spend are not growing — they're renting users. Turn off spend, users stop arriving. Organic retention must be proven independently of acquisition.
+
+CHURN COHORT ANALYSIS
+- Looking at aggregate churn hides cohort behavior. A startup that acquired 10K users in January and 50K in June may show flat or growing MAU while January cohort is at 2% retention — a crisis invisible in topline numbers.
+- Healthy cohort behavior: each successive cohort retains as well as or better than the prior cohort. Declining cohort retention is the leading indicator of product-market fit loss.
+- Resurrection rate: the % of churned users who return in a given month. Strong consumer apps have resurrection rates of 10–20%. Apps with resurrection rates below 5% are not building habits — they're building moments.

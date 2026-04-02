@@ -1,0 +1,45 @@
+AI & LLM STARTUPS — DEBATE KNOWLEDGE BASE
+==========================================
+
+THE "WRAPPER" PROBLEM
+- The majority of AI startups in 2023–2024 were wrappers: thin UX layers on top of OpenAI, Anthropic, or Google APIs with no proprietary model, data, or infrastructure.
+- Wrappers are vulnerable on three fronts: (1) OpenAI ships a native feature that replicates the use case, (2) the API cost structure makes unit economics unworkable at scale, (3) there is no defensible moat once the base model improves.
+- OpenAI's release of GPT-4 in March 2023 made dozens of well-funded startups built on GPT-3 effectively obsolete overnight. Same pattern repeated with GPT-4o and multimodal features.
+- Microsoft integrated Copilot into Office 365 in 2023, instantly competing with every AI writing assistant, meeting summarizer, and email tool built on top of the same underlying models.
+- The right question to ask any AI startup: "What happens to your product if OpenAI ships this feature natively next quarter?"
+
+INFERENCE COST ECONOMICS
+- Inference costs (the per-query cost of running a model) do not disappear at scale — they scale with usage, unlike traditional SaaS where marginal cost approaches zero.
+- A startup charging $20/month per user while spending $15/month in inference costs is not a SaaS business — it's a cost-plus service with no margin expansion path.
+- Gross margins for AI-native companies running proprietary models: 50–65% (below SaaS benchmarks of 70–80%). Wrapper businesses with no model optimization: often 30–50% gross margin.
+- Token costs dropped roughly 10x between GPT-4 (2023) and GPT-4o-mini (2024). But startups that priced assuming continued cost declines are exposed when usage scales faster than costs fall.
+- Benchmark: a healthy AI product should target $0.01–0.05 cost per meaningful user interaction. Products with $0.50+ per interaction at consumer price points are structurally broken.
+
+THE DATA MOAT MYTH
+- "Our data moat" is the most overclaimed competitive advantage in AI startups.
+- Diminishing returns on data are well-documented: past a certain corpus size, additional data produces marginal model improvement. Google's search advantage over Bing narrowed despite 10x more query data.
+- Most startups claiming a data moat have: (a) less data than they think, (b) data that the model provider already has, or (c) a moat that erodes as open-source models improve on public data.
+- Proprietary behavioral data (how specific users interact with specific workflows) is a real moat. Scraped or licensed data that any competitor can also license is not.
+- The meaningful question: is this data (a) exclusive, (b) accumulating over time, and (c) creating model improvement that is measurable in production outcomes?
+
+FOUNDATION MODEL PROVIDERS AS COMPETITORS
+- Every startup building on a foundation model API is building on infrastructure owned by a direct or potential competitor.
+- Anthropic, OpenAI, Google, and Meta all have product teams evaluating the highest-revenue use cases of their APIs — and the incentive to ship native products in those categories.
+- Historical pattern from cloud: AWS launched 116 services between 2006 and 2023 that competed directly with AWS customers. S3 competed with storage startups. SageMaker competed with ML platform startups. The pattern is structural, not accidental.
+- Mitigation strategies that actually work: deep vertical integration (the AI is embedded in a workflow no model provider wants to own), proprietary fine-tuning on exclusive data, or building in a regulated space where the provider can't ship a generic solution.
+
+AI HALLUCINATION AS BUSINESS RISK
+- In low-stakes applications (creative writing, brainstorming), hallucination is tolerable. In high-stakes applications (legal, medical, financial), a single confident hallucination creates liability that sinks enterprise sales.
+- Enterprise buyers in regulated industries (finance, healthcare, legal) routinely reject AI tools that cannot provide an audit trail, source attribution, or deterministic output for compliance workflows.
+- Startups selling AI into enterprise without a clear answer on hallucination mitigation and liability ownership are not ready for enterprise sales — regardless of product quality.
+- "We use RAG" is not a complete answer. Retrieval quality, chunking strategy, embedding freshness, and fallback behavior all determine whether RAG actually reduces hallucination risk in production.
+
+REGULATORY EXPOSURE
+- EU AI Act (2024) classifies high-risk AI applications (HR, credit, law enforcement, healthcare) with mandatory compliance requirements. Startups in these categories without compliance roadmaps are building toward a wall.
+- US sector-specific AI regulation is accelerating: FDA guidance on AI-assisted diagnostics, SEC scrutiny on AI in financial advice, FTC enforcement on deceptive AI product claims.
+- "We'll figure out compliance when we need to" is a statement that ends enterprise conversations with regulated-industry buyers immediately.
+
+OPEN-SOURCE MODEL COMMODITIZATION
+- Meta's Llama series (2023–2024) made high-quality open-source models freely available. Mistral, Falcon, and others followed. Any startup whose moat is "we use a better model" is on a treadmill.
+- Self-hosting open-source models eliminates API dependency but introduces infrastructure complexity that is itself a competitive disadvantage for small teams.
+- The relevant benchmark: does your startup's value compound as models improve, or does model improvement erode your differentiation? If a smarter model makes your product redundant, you don't have a product — you have a prompt.

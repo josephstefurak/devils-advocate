@@ -23,13 +23,13 @@ class TestSanitizeClaim:
         with pytest.raises(ValueError):
             sanitize_claim("   ")
 
-    def test_rejects_over_500_chars(self):
-        with pytest.raises(ValueError, match="500"):
-            sanitize_claim("x" * 501)
+    def test_rejects_over_750_chars(self):
+        with pytest.raises(ValueError, match="750"):
+            sanitize_claim("x" * 751)
 
-    def test_accepts_exactly_500_chars(self):
-        result = sanitize_claim("x" * 500)
-        assert len(result) == 500
+    def test_accepts_exactly_750_chars(self):
+        result = sanitize_claim("x" * 750)
+        assert len(result) == 750
 
     def test_strips_control_characters(self):
         result = sanitize_claim("my idea\x00\x1f")

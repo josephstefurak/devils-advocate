@@ -24,6 +24,8 @@ class GeminiLiveClient:
         self.on_interrupted = on_interrupted
         self.on_error = on_error
         self.voice_name = voice_name
+        self._user_transcript_buffer = ""
+        self._agent_transcript_buffer = ""
 
     async def connect(self):
         config = types.LiveConnectConfig(
@@ -59,8 +61,7 @@ class GeminiLiveClient:
                 await self.on_error("Connection to debate engine lost. Please end and start a new session.")
 
     async def _listen(self):
-        agent_transcript_buffer = ""
-        user_transcript_buffer = ""
+        
         try:
             while self.running:
                 async for msg in self.session.receive():
@@ -74,38 +75,38 @@ class GeminiLiveClient:
                             if part.text and self.on_reasoning:
                                 await self.on_reasoning(part.text.strip())
                             if part.inline_data and "audio" in part.inline_data.mime_type:
-                                if user_transcript_buffer.strip() and self.on_user_text:
-                                    await self.on_user_text(user_transcript_buffer.strip(), partial=False)
-                                    user_transcript_buffer = ""
+                                if self._user_transcript_buffer.strip() and self.on_user_text:
+                                    await self.on_user_text(self._user_transcript_buffer.strip(), partial=False)
+                                    self._user_transcript_buffer = ""
                                 audio_b64 = base64.b64encode(part.inline_data.data).decode()
                                 await self.on_audio(audio_b64)
                     if sc.input_transcription:
                         chunk = sc.input_transcription.text or ""
                         if chunk:
-                            user_transcript_buffer += chunk
+                            self._user_transcript_buffer += chunk
                             if self.on_user_text:
                                 await self.on_user_text(chunk, partial=True)
                     if sc.output_transcription:
                         chunk = sc.output_transcription.text or ""
                         if chunk:
-                            agent_transcript_buffer += chunk
+                            self._agent_transcript_buffer += chunk
                             await self.on_text(chunk, partial=True)
                     if sc.turn_complete:
-                        if agent_transcript_buffer.strip():
-                            await self.on_text(agent_transcript_buffer.strip(), partial=False)
-                            agent_transcript_buffer = ""
+                        if self._agent_transcript_buffer.strip():
+                            await self.on_text(self._agent_transcript_buffer.strip(), partial=False)
+                            self._agent_transcript_buffer = ""
                         else: 
                             print(f"turn_complete with empty transcript buffer — audio-only turn")
-                        if user_transcript_buffer.strip() and self.on_user_text:
-                            await self.on_user_text(user_transcript_buffer.strip(), partial=False)
-                            user_transcript_buffer = ""
+                        if self._user_transcript_buffer.strip() and self.on_user_text:
+                            await self.on_user_text(self._user_transcript_buffer.strip(), partial=False)
+                            self._user_transcript_buffer = ""
                     if sc.grounding_metadata and self.on_grounding:
                         await self.on_grounding(sc.grounding_metadata)
                     if sc.interrupted:
-                        if agent_transcript_buffer.strip():
-                            await self.on_text(agent_transcript_buffer.strip(), partial=False)
-                        agent_transcript_buffer = ""
-                        user_transcript_buffer = ""
+                        if self._agent_transcript_buffer.strip():
+                            await self.on_text(self._agent_transcript_buffer.strip(), partial=False)
+                        self._agent_transcript_buffer = ""
+                        self._user_transcript_buffer = ""
                         if self.on_interrupted:
                             await self.on_interrupted()
 

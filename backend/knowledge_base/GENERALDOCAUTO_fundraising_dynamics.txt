@@ -1,0 +1,44 @@
+FUNDRAISING & INVESTOR DYNAMICS — DEBATE KNOWLEDGE BASE
+========================================================
+
+STAGE DEFINITIONS AND WHAT INVESTORS ACTUALLY EXPECT
+- Pre-seed ($250K–$2M): investors are betting on the team and the problem, not the solution. Traction expected: strong team credentials, clear problem evidence, maybe a prototype or waitlist.
+- Seed ($2M–$5M): investors expect early product-market fit signals — active users, qualitative retention evidence, or early revenue. "We're going to use this to build the product" is a Series A pitch from 2012, not 2024.
+- Series A ($8M–$20M): investors expect a repeatable sales or growth motion, $1–3M ARR for SaaS (or equivalent user metrics for consumer), and a clear path to 3× in 24 months.
+- Series B ($20M–$60M): investors expect proof that the growth motion scales with capital, NRR above 110%, and a credible path to profitability at scale.
+- The most common founder error: pitching at the wrong stage with wrong metrics. A team with $300K ARR pitching Series A to tier-1 VCs is wasting cycles that should go to seed-extension or pre-A rounds.
+
+VALUATION MECHANICS AND HOW FOUNDERS GET IT WRONG
+- SaaS valuation multiples (2024): early-stage unprofitable SaaS = 5–10× ARR. Growth-stage (>50% YoY growth) = 10–20× ARR. Multiples compressed 60–70% from 2021 peak to 2023 baseline.
+- A startup with $500K ARR claiming a $20M valuation (40× ARR) in a 2024 market is not being rejected because VCs "don't get it" — they're being rejected because the multiple is indefensible.
+- Pre-revenue valuations are entirely team and market driven. The benchmark: $5–10M post-money for a strong team in a large market at pre-seed. $1–3M post-money for first-time founders with no domain advantage.
+- Down rounds: raising at a lower valuation than the previous round triggers anti-dilution clauses for earlier investors, crushes employee morale (options are underwater), and signals distress to future investors. Down rounds are survivable but expensive on every dimension.
+
+WHAT TERM SHEETS ACTUALLY MEAN
+- Liquidation preference: 1× non-participating preferred is standard. 2× participating preferred means investors get 2× their money back before founders and employees see anything from an acquisition.
+- Pro-rata rights: investors' right to maintain their ownership percentage in future rounds. Founders who give pro-rata to too many small investors create a cap table that slows future fundraising.
+- Board composition: giving up board majority before Series B is a significant loss of control. Standard at Series A: 2 founders, 2 investors, 1 independent. Anything more investor-heavy is founder-unfriendly.
+- SAFEs vs. priced rounds: SAFEs delay valuation conversation but accumulate. Multiple SAFEs at different cap levels create a cap table that confuses Series A investors and increases legal cost at conversion.
+
+HOW VCS ACTUALLY EVALUATE DEALS
+- VCs see 1,000–3,000 decks per year and invest in 5–15 companies. The rejection rate is structural, not personal.
+- Pattern matching is the dominant heuristic: does this founding team, market, and moment match the pattern of previous winners? This is why warm introductions matter — they signal pattern proximity.
+- The 3-minute rule: if the problem, solution, and why-now aren't clear in 3 minutes of a pitch, the meeting is over mentally even if physically still in the room.
+- Red flags VCs cite most: (1) founders who can't name their biggest risk, (2) hockey stick projections with no model behind them, (3) "we have no competitors," (4) large team with no revenue, (5) founder who responds to pushback with defensiveness rather than evidence.
+- Reference checks are standard for Series A and beyond. If a VC can't find 3 people who will enthusiastically recommend the founding team without being prompted, it is a meaningful signal.
+
+DILUTION MATH FOUNDERS DON'T DO
+- Founder who raises seed at 20% dilution, Series A at 25% dilution, Series B at 20% dilution, and option pool refresh at each round owns roughly 25–35% of the company at Series B.
+- Option pool shuffle: investors often require a 15–20% option pool be created pre-investment, which dilutes founders, not investors. Effective dilution is always higher than the stated percentage.
+- Convertible notes and SAFEs with valuation caps convert at the lower of the cap or the qualified financing price — meaning aggressive note issuance at high caps can create unexpected dilution cliffs at Series A.
+
+BRIDGE ROUNDS AND THEIR SIGNALS
+- Bridge rounds (extending runway without raising a full round) are common but signal to the market that a Series X milestone was missed.
+- Internal bridges (existing investors bridge the company) are less damaging to market perception than external bridges (new investors required to keep company alive).
+- The decision to bridge vs. cut burn: if the company is 6 months from a milestone that will support a real round, bridge. If no milestone is in sight, cutting burn is faster than fundraising and preserves equity.
+- "We're in conversations with tier-1 VCs" is a statement that loses credibility after 3 months. Active fundraising cycles that take longer than 3–4 months signal that the lead investor is not materializing.
+
+STRATEGIC INVESTORS AND THEIR TRADEOFFS
+- Corporate venture arms (Google Ventures, Intel Capital, Salesforce Ventures) offer strategic value (partnerships, distribution, co-selling) but introduce conflicts: they share information with their parent, may slow fundraising by signaling strategic exclusivity, and can block acquisitions by competitors.
+- Taking strategic investment before product-market fit locks in a direction that may constrain pivots. A Salesforce Ventures investment signals "this is a Salesforce ecosystem company" — useful if true, limiting if not.
+- Angels vs. institutional seed: angels close faster (days vs. weeks), require less diligence, but offer less follow-on capacity and network leverage for future rounds.

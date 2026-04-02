@@ -81,6 +81,7 @@ export async function uploadAudioToStorage(sessionId, blob, { onProgress } = {})
  * Single upload attempt. Returns download URL on success, throws on failure.
  */
 function attemptUpload(storageRef, blob, onProgress) {
+    println(`[uploadAudio] Uploading to Firebase Storage...`)
     return new Promise((resolve, reject) => {
         const uploadTask = uploadBytesResumable(storageRef, blob, {
             contentType: blob.type || 'audio/webm',

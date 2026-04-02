@@ -1,6 +1,6 @@
 import re
 
-MAX_CLAIM_LENGTH = 500
+MAX_CLAIM_LENGTH = 750
 MAX_AUDIO_CHUNK_BYTES = 32768  # 32KB max per chunk
 
 
