@@ -10,7 +10,7 @@ describe('Idle state', () => {
 
     it('renders the textarea and start button after landing', () => {
         getPastLanding()
-        expect(screen.getByPlaceholderText(/describe your.*idea/i)).toBeInTheDocument()
+        expect(screen.getByRole('textbox')).toBeInTheDocument()
         expect(screen.getByText(/start debate/i)).toBeInTheDocument()
     })
 

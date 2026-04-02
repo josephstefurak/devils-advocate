@@ -711,7 +711,7 @@ export default function App() {
                 </PrimaryBtn>
                 {(judgeResult || report) && (
                   <GhostBtn
-                    onClick={() => exportToPDF(reportRef, { report, claim })}
+                    onClick={() => exportToPDF(reportRef, { report })}
                     color={colors.info}
                   >Export PDF</GhostBtn>
                 )}
@@ -1213,9 +1213,16 @@ export default function App() {
 
               </div>
 
+              <FeedbackWidget
+                sessionId={sessionId}
+                user={user}
+                consentGiven={consentGiven}
+                hasReport={Boolean(report)}
+              />
+
               <div style={{ display: 'flex', gap: spacing.md, marginTop: spacing.lg }}>
                 {(judgeResult || report) && (
-                  <GhostBtn onClick={() => exportToPDF(reportRef, { report, claim })} color={colors.info}>
+                  <GhostBtn onClick={() => exportToPDF(reportRef, { report })} color={colors.info}>
                     Export PDF
                   </GhostBtn>
                 )}
@@ -1226,7 +1233,6 @@ export default function App() {
                   {!reportReady ? 'GENERATING...' : 'NEW DEBATE'}
                 </PrimaryBtn>
               </div>
-              <FeedbackWidget sessionId={sessionId} uid={user?.uid} claim={claim} />
             </div>
           )}
         </div>
