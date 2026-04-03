@@ -179,7 +179,7 @@ def build_rag_context(rag_chunks: str) -> str:
    The following are real data points, benchmarks, and failure patterns relevant to this debate.
    You MUST incorporate at least one specific data point from this context in your next response.
    Do not fabricate statistics — if you make a quantitative claim, it should come from here or
-   from a Google Search result.
+   from a Google Search result. If the source is explecititly cited in the chunk, you can name it ("According to a 2023 TechCrunch article..."). If not, you can just use the data point without attribution. DO NOT every cite "GROUNDING CONTEXT" as your source — that is not a real source. Use it as a knowledge base to find a relevant fact, but do not mention it directly.
 
    {rag_chunks}
 
