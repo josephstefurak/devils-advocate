@@ -18,7 +18,7 @@ const PDF_TITLE_PAGE_LINK = 'https://devils-advocate-488918.web.app/'
  *   status          'idle' | 'connecting' | 'debating' | 'ended'
  *   transcript      { speaker, text }[]
  *   partials        { [speaker]: string }  (live streaming text)
- *   claims          { classification, summary, strength }[]
+ *   claims          { classification, summary, strength, judge_scores? }[]
  *   report          post-debate report object or null
  *   judgeResult     judge scorecard object or null
  *   isAgentSpeaking boolean
@@ -443,28 +443,50 @@ export function useDebateSession() {
         }
 
         const container = reportRef.current
+        const captureWidth = Math.max(1, container.offsetWidth)
 
-        // Hide elements not meant for PDF first, so layout reflects the exported state
-        const hiddenEls = Array.from(container.querySelectorAll('[data-pdf-hide]'))
-        hiddenEls.forEach(el => el.style.display = 'none')
-
-        // Measure forced break positions after hiding, so they match the canvas
-        const containerRect = container.getBoundingClientRect()
-        const forcedBreaksDom = Array.from(container.querySelectorAll('[data-pdf-page-break]'))
-            .map(el => el.getBoundingClientRect().top - containerRect.top)
-            .filter(pos => pos > 0)
-            .sort((a, b) => a - b)
-
-        const canvas = await html2canvas(container, {
+        // Deep-clone off-screen so PDF tweaks (show headings, hide share btn) never touch the
+        // visible DOM — avoids a flash of white Bebas titles when export runs.
+        const clone = container.cloneNode(true)
+        Object.assign(clone.style, {
+            position: 'fixed',
+            left: '-10000px',
+            top: '0',
+            width: `${captureWidth}px`,
+            maxWidth: `${captureWidth}px`,
+            boxSizing: 'border-box',
             backgroundColor: '#0d0d0d',
-            scale: 2,
-            useCORS: true,
-            logging: false,
+        })
+        document.body.appendChild(clone)
+
+        Array.from(clone.querySelectorAll('[data-pdf-hide]')).forEach((el) => {
+            el.style.display = 'none'
+        })
+        Array.from(clone.querySelectorAll('[data-pdf-only-heading]')).forEach((el) => {
+            el.style.display = 'block'
+            el.style.textAlign = 'left'
         })
 
-        hiddenEls.forEach(el => el.style.display = '')
+        let canvas
+        let forcedBreaksDom = []
+        try {
+            const containerRect = clone.getBoundingClientRect()
+            forcedBreaksDom = Array.from(clone.querySelectorAll('[data-pdf-page-break]'))
+                .map(el => el.getBoundingClientRect().top - containerRect.top)
+                .filter(pos => pos > 0)
+                .sort((a, b) => a - b)
 
-        const domToCanvas = canvas.width / container.offsetWidth
+            canvas = await html2canvas(clone, {
+                backgroundColor: '#0d0d0d',
+                scale: 2,
+                useCORS: true,
+                logging: false,
+            })
+        } finally {
+            document.body.removeChild(clone)
+        }
+
+        const domToCanvas = canvas.width / captureWidth
         const scaledPageH = pageHeight * (canvas.width / pageWidth)
 
         const forcedBreaks = forcedBreaksDom

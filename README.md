@@ -157,6 +157,7 @@ Update `backend/.env`:
 GEMINI_API_KEY=your_gemini_api_key
 FIREBASE_KEY_PATH=./firebase_key.json
 FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 Place the Firebase Admin SDK JSON at:
