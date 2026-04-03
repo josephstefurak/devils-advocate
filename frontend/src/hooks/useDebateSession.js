@@ -18,7 +18,7 @@ const PDF_TITLE_PAGE_LINK = 'https://devils-advocate-488918.web.app/'
  *   status          'idle' | 'connecting' | 'debating' | 'ended'
  *   transcript      { speaker, text }[]
  *   partials        { [speaker]: string }  (live streaming text)
- *   claims          { classification, summary, strength }[]
+ *   claims          { classification, summary, strength, judge_scores? }[]
  *   report          post-debate report object or null
  *   judgeResult     judge scorecard object or null
  *   isAgentSpeaking boolean

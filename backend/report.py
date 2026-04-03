@@ -56,7 +56,14 @@ async def generate_report(state, verdicts: list[dict] | None = None) -> dict | N
             lines.append(f"- [{upd.classification}] {upd.summary} (consensus strength: {upd.strength}/10)")
             for js in (upd.judge_scores if isinstance(upd.judge_scores, list) else []):
                 name = js.get("judge_name", "unknown")
-                lines.append(f"    {name} ({js.get('strength', '?')}/10): {js.get('reaction', '')}")
+                jc = js.get("classification", "?")
+                lines.append(
+                    f"    {name} [{jc}] ({js.get('strength', '?')}/10): {js.get('reaction', '')}"
+                )
+                if js.get("classification_rationale"):
+                    lines.append(f"        classification_why: {js['classification_rationale']}")
+                if js.get("strength_rationale"):
+                    lines.append(f"        strength_why: {js['strength_rationale']}")
         judge_update_summary = "\n".join(lines)
 
     verdict_summary = ""

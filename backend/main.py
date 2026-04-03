@@ -421,7 +421,7 @@ async def end_session(sid):
     except Exception as e:
         print(f"Judge panel failed after retries: {e}")
 
-    merged = merge_verdicts(verdicts)
+    merged = await merge_verdicts(verdicts)
     consensus = merged.get("consensus") if merged else None
 
     if consensus:

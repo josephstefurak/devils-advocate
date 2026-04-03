@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from openai_client import OpenAIClient
-from prompts import JUDGE_PROMPTS
+from prompts import JUDGE_PROMPTS, JUDGE_SYNTHESIS_LABELS, VERDICT_PANEL_SYNTHESIS_PROMPT
 
 
 # ── Per-turn model (replaces ClaimClassificationResult) ──────────────
@@ -15,6 +15,18 @@ class JudgeTurnScore(BaseModel):
         description="Exactly one of: DEFENDED, CONCEDED, NEW_CLAIM, DEFLECTED"
     )
     strength: int = Field(description="1-10 score for how compelling the turn was")
+    classification_rationale: str = Field(
+        description=(
+            "1-3 sentences: why this classification fits the user's latest turn and why it is not "
+            "the next-best alternative (e.g. why DEFLECTED rather than DEFENDED). Cite the turn or agent attack."
+        )
+    )
+    strength_rationale: str = Field(
+        description=(
+            "1-3 sentences: why this strength number for this classification, using the rubric "
+            "(e.g. partial vs full rebuttal, evidence vs assertion)."
+        )
+    )
     summary: str = Field(description="One sentence summary of what the user argued")
     reaction: str = Field(description="One sentence reaction from this judge's perspective")
     suggested_argument: str = Field(
@@ -41,6 +53,18 @@ class JudgeVerdict(BaseModel):
     )
     winner: str = Field(description='"founder" if overall >= 6, "agent" if < 6')
     summary: str = Field(description="2-3 sentence verdict on how the founder performed, from this judge's perspective")
+
+
+class VerdictPanelSynthesis(BaseModel):
+    summary: str = Field(
+        description=(
+            "Consensus paragraphs on what judges agreed on, then Note: paragraphs for material "
+            "disagreements between personality lenses, using the judge labels from the prompt."
+        )
+    )
+
+
+_verdict_synthesis_client = OpenAIClient(system_prompt=VERDICT_PANEL_SYNTHESIS_PROMPT)
 
 
 # ── Panel construction ───────────────────────────────────────────────
@@ -84,6 +108,8 @@ def _merge_turn_scores(scores: list[tuple[str, JudgeTurnScore]]) -> dict:
             "judge_name": name,
             "classification": s.classification,
             "strength": s.strength,
+            "classification_rationale": s.classification_rationale,
+            "strength_rationale": s.strength_rationale,
             "summary": s.summary,
             "reaction": s.reaction,
             "suggested_argument": s.suggested_argument,
@@ -113,7 +139,7 @@ async def run_live_judge_update(
     )
 
     async def _score_one(name: str, client: OpenAIClient):
-        result = await client.generate(prompt, JudgeTurnScore, temperature=0.3, max_completion_tokens=1024)
+        result = await client.generate(prompt, JudgeTurnScore, temperature=0.3, max_completion_tokens=2048)
         return (name, result)
 
     try:
@@ -121,7 +147,13 @@ async def run_live_judge_update(
             *[_score_one(name, client) for name, client in judges.items()],
             return_exceptions=True,
         )
-        valid = [(name, score) for name, score in results if not isinstance((name, score), BaseException) and isinstance(score, JudgeTurnScore)]
+        valid: list[tuple[str, JudgeTurnScore]] = []
+        for item in results:
+            if isinstance(item, BaseException):
+                continue
+            name, score = item
+            if isinstance(score, JudgeTurnScore):
+                valid.append((name, score))
         if not valid:
             print("Judge live update: all judges failed")
             return None
@@ -181,8 +213,73 @@ async def run_judge_panel(
     return valid
 
 
-def merge_verdicts(verdicts: list[dict]) -> dict:
-    """Merge multiple judge verdicts into a consensus result compatible with the existing frontend."""
+def _fallback_panel_summary(verdicts: list[dict], consensus_overall: float) -> str:
+    """If synthesis fails, use the single judge whose overall is closest to the panel average."""
+    with_summary = [v for v in verdicts if (v.get("summary") or "").strip()]
+    if not with_summary:
+        return ""
+    with_overall = [v for v in with_summary if v.get("overall") is not None]
+    if with_overall:
+        rep = min(
+            with_overall,
+            key=lambda v: abs(float(v["overall"]) - consensus_overall),
+        )
+        return str(rep["summary"]).strip()
+    return str(with_summary[0]["summary"]).strip()
+
+
+def _format_verdict_block(v: dict) -> str:
+    name = v.get("judge_name", "unknown")
+    label = JUDGE_SYNTHESIS_LABELS.get(name, name)
+    overall = v.get("overall", "?")
+    winner = v.get("winner", "?")
+    summary = (v.get("summary") or "").strip()
+    lines = [
+        f"--- Judge key: {name} | Roster label: {label} ---",
+        f"Overall: {overall}/10 | winner: {winner}",
+    ]
+    if v.get("scores"):
+        s = v["scores"]
+        lines.append(
+            "Scores: "
+            f"problem_clarity={s.get('problem_clarity')}, market_logic={s.get('market_logic')}, "
+            f"execution_risk={s.get('execution_risk')}, competitive_awareness={s.get('competitive_awareness')}, "
+            f"internal_coherence={s.get('internal_coherence')}"
+        )
+    lines.append(f"Summary: {summary}")
+    return "\n".join(lines)
+
+
+def _build_verdict_synthesis_prompt(verdicts: list[dict]) -> str:
+    roster = "\n".join(
+        f"- {k}: {label}" for k, label in sorted(JUDGE_SYNTHESIS_LABELS.items())
+    )
+    blocks = "\n\n".join(_format_verdict_block(v) for v in verdicts)
+    return f"""ROSTER (use these exact labels when contrasting judges in Note: paragraphs):
+{roster}
+
+VERDICTS:
+{blocks}
+"""
+
+
+async def synthesize_verdict_panel_summary(verdicts: list[dict]) -> str | None:
+    """LLM synthesis of consensus + personality-based divergences across the panel."""
+    if not verdicts:
+        return None
+    prompt = _build_verdict_synthesis_prompt(verdicts)
+    out = await _verdict_synthesis_client.generate(
+        prompt,
+        VerdictPanelSynthesis,
+        temperature=0.35,
+        max_completion_tokens=2500,
+    )
+    text = (out.summary or "").strip()
+    return text or None
+
+
+async def merge_verdicts(verdicts: list[dict]) -> dict:
+    """Average numeric scores; narrative summary via LLM (consensus + divergent Notes)."""
     if not verdicts:
         return {}
 
@@ -195,8 +292,15 @@ def merge_verdicts(verdicts: list[dict]) -> dict:
     consensus_overall = round(sum(overalls) / len(overalls), 1) if overalls else 0
     winner = "founder" if consensus_overall >= 6 else "agent"
 
-    summaries = [v.get("summary", "") for v in verdicts if v.get("summary")]
-    consensus_summary = " | ".join(summaries) if summaries else ""
+    consensus_summary = ""
+    try:
+        synthesized = await synthesize_verdict_panel_summary(verdicts)
+        if synthesized:
+            consensus_summary = synthesized
+    except Exception as e:
+        print(f"Verdict panel synthesis failed: {e}")
+    if not consensus_summary:
+        consensus_summary = _fallback_panel_summary(verdicts, consensus_overall)
 
     return {
         "verdicts": verdicts,

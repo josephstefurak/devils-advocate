@@ -198,9 +198,11 @@ STAGE: {stage_label}
 YOUR TASK — For the user's latest turn, provide:
 1. classification: exactly one of DEFENDED, CONCEDED, NEW_CLAIM, DEFLECTED
 2. strength: 1-10 score for how compelling the turn was given the selected classification.
-3. summary: one-sentence summary of what the user argued
-4. reaction: one-sentence reaction from your perspective
-5. suggested_argument: 1-3 sentences on the strongest argument the user could have made, from your perspective. This could be a counter-argument to the agent's attack, a clarification of their original claim, or a new argument altogether. You can use the grounding context or the internet to help you come up with a suggested argument.
+3. classification_rationale: 1-3 sentences explaining WHY this label fits (reference the user's words and the agent's last attack). Explicitly say why it is NOT at least one plausible alternative label (e.g. "This is DEFLECTED rather than DEFENDED because the user did not address X; they pivoted to Y.").
+4. strength_rationale: 1-3 sentences explaining WHY this numeric score for THIS classification using the rubric below (evidence vs assertion, how much of the attack was neutralized, etc.).
+5. summary: one-sentence summary of what the user argued
+6. reaction: one-sentence reaction from your perspective
+7. suggested_argument: 1-3 sentences on the strongest argument the user could have made, from your perspective. This could be a counter-argument to the agent's attack, a clarification of their original claim, or a new argument altogether. You can use the grounding context or the internet to help you come up with a suggested argument.
 
 You are analyzing a live debate transcript. The user is defending a business idea against
 an adversarial AI agent.
@@ -378,6 +380,31 @@ JUDGE_PROMPTS: dict[str, callable] = {
     "estp_entrepreneur": _estp_entrepreneur,
     "infj_advocate": _infj_advocate,
 }
+
+# Human-readable labels for panel synthesis (keys must match JUDGE_PROMPTS).
+JUDGE_SYNTHESIS_LABELS: dict[str, str] = {
+    "entj_commander": 'ENTJ — "The Commander"',
+    "intj_architect": 'INTJ — "The Architect"',
+    "entp_debater": 'ENTP — "The Debater"',
+    "estp_entrepreneur": 'ESTP — "The Entrepreneur"',
+    "infj_advocate": 'INFJ — "The Advocate"',
+}
+
+VERDICT_PANEL_SYNTHESIS_PROMPT = """You synthesize final verdicts from five VC judges. Each judge evaluated the same debate from a different MBTI-grounded personality (Execution vs vision vs hustle vs mission, etc.).
+
+You receive each judge's scores, winner call, and written summary. Your output is ONE field: a single narrative for the founder.
+
+Structure:
+1) **Consensus** — 1–3 short paragraphs on what most or all judges agreed on (strengths, weaknesses, recurring critiques). Be concrete; do not repeat the same sentence five ways.
+
+2) **Where perspectives diverged** — Only for *material* disagreements (different dimensions praised or different gaps emphasized). For each, write a short paragraph starting with exactly "Note: " explaining how one personality lens sees it versus another. Always name judges using the roster labels provided in the user message (e.g. ENTJ — "The Commander" vs INFJ — "The Advocate"). Example pattern: Note: Someone with an ENTJ — "The Commander" lens may weight X more heavily, while someone with an INFJ — "The Advocate" lens may see Y as the critical gap instead.
+
+Rules:
+- Do not invent judges or scores; only use the verdicts given.
+- If all five summaries align closely, state that consensus is strong and keep Notes brief or omit them.
+- Write in clear, professional second person or neutral voice ("the founder", "your defense").
+- No bullet lists unless essential; flowing paragraphs are preferred.
+"""
 
 
 REPORT_AGGREGATOR_PROMPT = """You are a rigorous evaluator of startup pitch performance. A founder just defended their business idea in a live adversarial debate against an AI challenger.

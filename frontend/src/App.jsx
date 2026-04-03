@@ -30,6 +30,79 @@ const displayFont = {
   fontFamily: "'Bebas Neue', 'Georgia', serif",
 }
 
+function formatJudgeId(id) {
+  if (!id || typeof id !== 'string') return 'Judge'
+  return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/** Per-judge classification/strength rationales from live panel (claim_update / claim_events). */
+function JudgePanelRationales({ judgeScores }) {
+  if (!Array.isArray(judgeScores) || judgeScores.length === 0) return null
+  return (
+    <details style={{ marginTop: spacing.sm }}>
+      <summary style={{
+        ...mono,
+        cursor: 'pointer',
+        color: colors.textDim,
+        fontSize: font.xs,
+        userSelect: 'none',
+      }}>
+        Why each judge scored this turn ({judgeScores.length})
+      </summary>
+      <div style={{
+        marginTop: spacing.sm,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing.md,
+        paddingLeft: spacing.sm,
+        borderLeft: `2px solid ${colors.borderSubtle}`,
+      }}>
+        {judgeScores.map((js, ji) => (
+          <div key={ji}>
+            <div style={{
+              ...mono, fontSize: 10, color: colors.accent, marginBottom: 4,
+            }}>
+              {formatJudgeId(js.judge_name)}
+              {' · '}
+              {js.classification}
+              {' · '}
+              {js.strength}/10
+            </div>
+            {(js.classification_rationale || js.strength_rationale) ? (
+              <>
+                {js.classification_rationale && (
+                  <p style={{
+                    ...serif, margin: 0, fontSize: font.sm,
+                    color: colors.textMuted, lineHeight: 1.45,
+                  }}>
+                    <span style={{ color: colors.textDim }}>Label: </span>
+                    {js.classification_rationale}
+                  </p>
+                )}
+                {js.strength_rationale && (
+                  <p style={{
+                    ...serif, margin: '6px 0 0', fontSize: font.sm,
+                    color: colors.textMuted, lineHeight: 1.45,
+                  }}>
+                    <span style={{ color: colors.textDim }}>Score: </span>
+                    {js.strength_rationale}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p style={{
+                ...serif, margin: 0, fontSize: font.sm, color: colors.textDim,
+              }}>
+                {js.reaction || '—'}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </details>
+  )
+}
+
 const card = {
   background: colors.bgSurface,
   border: `1px solid ${colors.border}`,
@@ -822,6 +895,7 @@ export default function App() {
                         }}>
                           {c.summary}
                         </p>
+                        <JudgePanelRationales judgeScores={c.judge_scores} />
                       </div>
                     )
                   })}
@@ -1156,6 +1230,7 @@ export default function App() {
                                       {c.suggested_argument}
                                     </p>
                                   )}
+                                  <JudgePanelRationales judgeScores={c.judge_scores} />
                                 </div>
                               )
                             })}
