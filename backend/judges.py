@@ -90,18 +90,29 @@ USER'S LATEST TURN: "{user_turn}"
 
 
 def _merge_turn_scores(scores: list[tuple[str, JudgeTurnScore]]) -> dict:
-    """Merge individual judge turn scores into a consensus result."""
+    """Merge per-turn judge scores: plurality classification; strength = mean of judges in that class only."""
     classifications = [s.classification for _, s in scores]
     counts = Counter(classifications)
-    consensus_classification = counts.most_common(1)[0][0]
+    max_votes = max(counts.values())
+    tied_labels = [c for c, n in counts.items() if n == max_votes]
+    if len(tied_labels) == 1:
+        consensus_classification = tied_labels[0]
+    else:
+        # Plurality tie: pick the label whose judges have the higher mean strength.
+        consensus_classification = max(
+            tied_labels,
+            key=lambda c: sum(s.strength for _, s in scores if s.classification == c)
+            / counts[c],
+        )
 
-    strengths = [s.strength for _, s in scores]
-    avg_strength = round(sum(strengths) / len(strengths))
+    in_consensus = [(name, s) for name, s in scores if s.classification == consensus_classification]
+    strengths_in = [s.strength for _, s in in_consensus]
+    avg_strength = round(sum(strengths_in) / len(strengths_in)) if strengths_in else 0
 
-    # Pick the representative judge (closest to average strength)
-    diffs = [(abs(s.strength - avg_strength), name, s) for name, s in scores]
+    # Representative judge only from consensus-aligned votes (closest to that average).
+    diffs = [(abs(s.strength - avg_strength), name, s) for name, s in in_consensus]
     diffs.sort(key=lambda x: x[0])
-    representative = diffs[0][2]
+    representative = diffs[0][2] if diffs else scores[0][1]
 
     judge_scores = [
         {

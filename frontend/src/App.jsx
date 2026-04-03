@@ -35,7 +35,7 @@ function formatJudgeId(id) {
   return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-/** Per-judge classification/strength rationales from live panel (claim_update / claim_events). */
+/** Per-listener-personality scores + reaction (claim_update / claim_events); rationales stay server-only. */
 function JudgePanelRationales({ judgeScores }) {
   if (!Array.isArray(judgeScores) || judgeScores.length === 0) return null
   return (
@@ -47,7 +47,7 @@ function JudgePanelRationales({ judgeScores }) {
         fontSize: font.xs,
         userSelect: 'none',
       }}>
-        Why each judge scored this turn ({judgeScores.length})
+        Scores by listener personality ({judgeScores.length})
       </summary>
       <div style={{
         marginTop: spacing.sm,
@@ -68,34 +68,12 @@ function JudgePanelRationales({ judgeScores }) {
               {' · '}
               {js.strength}/10
             </div>
-            {(js.classification_rationale || js.strength_rationale) ? (
-              <>
-                {js.classification_rationale && (
-                  <p style={{
-                    ...serif, margin: 0, fontSize: font.sm,
-                    color: colors.textMuted, lineHeight: 1.45,
-                  }}>
-                    <span style={{ color: colors.textDim }}>Label: </span>
-                    {js.classification_rationale}
-                  </p>
-                )}
-                {js.strength_rationale && (
-                  <p style={{
-                    ...serif, margin: '6px 0 0', fontSize: font.sm,
-                    color: colors.textMuted, lineHeight: 1.45,
-                  }}>
-                    <span style={{ color: colors.textDim }}>Score: </span>
-                    {js.strength_rationale}
-                  </p>
-                )}
-              </>
-            ) : (
-              <p style={{
-                ...serif, margin: 0, fontSize: font.sm, color: colors.textDim,
-              }}>
-                {js.reaction || '—'}
-              </p>
-            )}
+            <p style={{
+              ...serif, margin: 0, fontSize: font.sm,
+              color: colors.textMuted, lineHeight: 1.45,
+            }}>
+              {js.reaction || '—'}
+            </p>
           </div>
         ))}
       </div>
