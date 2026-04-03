@@ -36,8 +36,56 @@ function formatJudgeId(id) {
 }
 
 /** Per-listener-personality scores + reaction (claim_update / claim_events); rationales stay server-only. */
-function JudgePanelRationales({ judgeScores }) {
+function JudgePanelRationales({ judgeScores, forPrint = false }) {
   if (!Array.isArray(judgeScores) || judgeScores.length === 0) return null
+
+  const body = (
+    <div style={{
+      marginTop: forPrint ? spacing.xs : spacing.sm,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: spacing.md,
+      paddingLeft: spacing.sm,
+      borderLeft: `2px solid ${colors.borderSubtle}`,
+    }}>
+      {judgeScores.map((js, ji) => (
+        <div key={ji}>
+          <div style={{
+            ...mono, fontSize: 10, color: colors.accent, marginBottom: 4,
+          }}>
+            {formatJudgeId(js.judge_name)}
+            {' · '}
+            {js.classification}
+            {' · '}
+            {js.strength}/10
+          </div>
+          <p style={{
+            ...serif, margin: 0, fontSize: font.sm,
+            color: colors.textMuted, lineHeight: 1.45,
+          }}>
+            {js.reaction || '—'}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+
+  if (forPrint) {
+    return (
+      <div style={{ marginTop: spacing.sm }}>
+        <div style={{
+          ...mono,
+          color: colors.textDim,
+          fontSize: font.xs,
+          marginBottom: spacing.xs,
+        }}>
+          Scores by listener personality ({judgeScores.length})
+        </div>
+        {body}
+      </div>
+    )
+  }
+
   return (
     <details style={{ marginTop: spacing.sm }}>
       <summary style={{
@@ -49,35 +97,58 @@ function JudgePanelRationales({ judgeScores }) {
       }}>
         Scores by listener personality ({judgeScores.length})
       </summary>
-      <div style={{
-        marginTop: spacing.sm,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: spacing.md,
-        paddingLeft: spacing.sm,
-        borderLeft: `2px solid ${colors.borderSubtle}`,
-      }}>
-        {judgeScores.map((js, ji) => (
-          <div key={ji}>
-            <div style={{
-              ...mono, fontSize: 10, color: colors.accent, marginBottom: 4,
-            }}>
-              {formatJudgeId(js.judge_name)}
-              {' · '}
-              {js.classification}
-              {' · '}
-              {js.strength}/10
-            </div>
-            <p style={{
-              ...serif, margin: 0, fontSize: font.sm,
-              color: colors.textMuted, lineHeight: 1.45,
-            }}>
-              {js.reaction || '—'}
-            </p>
-          </div>
-        ))}
-      </div>
+      {body}
     </details>
+  )
+}
+
+/** Group claim_events into pairs of two for PDF pagination. */
+function chunkClaimEventsPairs(events) {
+  if (!Array.isArray(events) || events.length === 0) return []
+  const pairs = []
+  for (let i = 0; i < events.length; i += 2) {
+    pairs.push(events.slice(i, i + 2))
+  }
+  return pairs
+}
+
+/** Single turn row in debate breakdown (report). */
+function ReportClaimEventRow({ c, isLastInSection }) {
+  const col = classificationColor(c.classification)
+  return (
+    <div style={{
+      borderLeft: `3px solid ${col.border}`,
+      padding: `${spacing.md}px ${spacing.md}px`,
+      borderBottom: isLastInSection ? 'none' : `1px solid ${colors.border}`,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: spacing.sm,
+        marginBottom: spacing.xs,
+      }}>
+        <span style={{ ...mono, fontSize: font.xs, fontWeight: 700, color: col.text }}>
+          {c.classification}
+        </span>
+        <span style={{ ...mono, fontSize: font.xs, color: colors.textDim }}>
+          {c.strength}/10
+        </span>
+      </div>
+      <p style={{
+        ...serif, margin: 0, fontSize: font.sm,
+        lineHeight: 1.5, color: colors.textMuted,
+      }}>
+        {c.summary}
+      </p>
+      {c.suggested_argument && (
+        <p style={{
+          ...serif, margin: `${spacing.xs}px 0 0`,
+          fontSize: font.sm, lineHeight: 1.5,
+          color: colors.textDim, fontStyle: 'italic',
+        }}>
+          {c.suggested_argument}
+        </p>
+      )}
+      <JudgePanelRationales judgeScores={c.judge_scores} forPrint />
+    </div>
   )
 }
 
@@ -124,6 +195,98 @@ function ScoreRing({ score, size = 56 }) {
     }}>
       {score}
     </div>
+  )
+}
+
+/** PDF-only section title; hidden on screen; matches cover "DEVIL'S ADVOCATE" typography (white for contrast on body pages). */
+function PdfExportSectionHeading({ children }) {
+  return (
+    <div
+      data-pdf-only-heading
+      style={{
+        display: 'none',
+        textAlign: 'left',
+        width: '100%',
+        marginTop: spacing.xl,
+        marginBottom: spacing.lg,
+        ...displayFont,
+        fontSize: 42,
+        letterSpacing: 2,
+        color: '#ffffff',
+        lineHeight: 1.05,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** Judge scorecard body (used while report generates, or inside PDF page 2 bundle). */
+function EndedJudgeScorecard({ judgeResult, shareFooter }) {
+  if (!judgeResult) return null
+  return (
+    <>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: spacing.lg,
+      }}>
+        <SectionLabel>Judge Scorecard</SectionLabel>
+        <span style={{
+          padding: `4px ${spacing.md}px`,
+          borderRadius: radius.pill, ...mono,
+          background: judgeResult.winner === 'founder' ? colors.defendedBg : colors.concededBg,
+          color: judgeResult.winner === 'founder' ? colors.success : colors.accent,
+        }}>
+          {judgeResult.winner === 'founder' ? '🏆 Founder Wins' : '🤖 Agent Wins'}
+        </span>
+      </div>
+
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1fr 1fr',
+        gap: spacing.sm, marginBottom: spacing.lg,
+      }}>
+        {Object.entries(judgeResult.scores).map(([dim, score]) => {
+          const col = scoreColor(score)
+          return (
+            <div key={dim} style={{
+              background: colors.bgSurfaceAlt,
+              borderRadius: radius.sm,
+              padding: `${spacing.sm}px ${spacing.md}px`,
+            }}>
+              <div style={{ ...mono, color: colors.textFaint, marginBottom: spacing.xs }}>
+                {dim.replace(/_/g, ' ')}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                <div style={{
+                  flex: 1, height: 3, background: colors.borderSubtle,
+                  borderRadius: 2, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${score * 10}%`, height: '100%',
+                    borderRadius: 2, background: col.text,
+                    transition: 'width 0.8s ease',
+                  }} />
+                </div>
+                <span style={{ ...mono, color: col.text, width: 16, textAlign: 'right' }}>
+                  {score}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.md }}>
+        <ScoreRing score={judgeResult.overall} size={48} />
+        <p style={{
+          ...serif, color: colors.textDim,
+          fontSize: font.md, lineHeight: 1.6, margin: 0,
+        }}>
+          {judgeResult.summary}
+        </p>
+      </div>
+      {shareFooter}
+    </>
   )
 }
 
@@ -702,7 +865,7 @@ export default function App() {
                   }} />
                   {[
                     { value: 'early', label: "I'm exploring an idea" },
-                    { value: 'late',  label: "I have traction & data" },
+                    { value: 'late', label: "I have traction & data" },
                   ].map(({ value, label }) => {
                     const active = stage === value
                     const hovered = hoveredStage === value
@@ -1015,84 +1178,30 @@ export default function App() {
 
               <div ref={reportRef}>
 
-                {/* Judge scorecard */}
-                {judgeResult && (
+                {/* Scorecard alone while report is still generating */}
+                {!reportReady && judgeResult && (
                   <div style={{ ...card, marginBottom: spacing.lg }}>
-                    <div style={{
-                      display: 'flex', justifyContent: 'space-between',
-                      alignItems: 'center', marginBottom: spacing.lg,
-                    }}>
-                      <SectionLabel>Judge Scorecard</SectionLabel>
-                      <span style={{
-                        padding: `4px ${spacing.md}px`,
-                        borderRadius: radius.pill, ...mono,
-                        background: judgeResult.winner === 'founder' ? colors.defendedBg : colors.concededBg,
-                        color: judgeResult.winner === 'founder' ? colors.success : colors.accent,
-                      }}>
-                        {judgeResult.winner === 'founder' ? '🏆 Founder Wins' : '🤖 Agent Wins'}
-                      </span>
-                    </div>
-
-                    <div style={{
-                      display: 'grid', gridTemplateColumns: '1fr 1fr',
-                      gap: spacing.sm, marginBottom: spacing.lg,
-                    }}>
-                      {Object.entries(judgeResult.scores).map(([dim, score]) => {
-                        const col = scoreColor(score)
-                        return (
-                          <div key={dim} style={{
-                            background: colors.bgSurfaceAlt,
-                            borderRadius: radius.sm,
-                            padding: `${spacing.sm}px ${spacing.md}px`,
+                    <EndedJudgeScorecard
+                      judgeResult={judgeResult}
+                      shareFooter={(
+                        <div data-pdf-hide style={{ marginTop: spacing.lg, borderTop: `1px solid ${colors.border}`, paddingTop: spacing.lg }}>
+                          <button onClick={handleShare} style={{
+                            padding: `8px 20px`,
+                            background: 'transparent',
+                            color: shareStatus === 'copied' ? colors.success : colors.textFaint,
+                            border: `1px solid ${shareStatus === 'copied' ? colors.success : colors.borderSubtle}`,
+                            borderRadius: radius.md,
+                            fontSize: font.sm,
+                            cursor: 'pointer',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            letterSpacing: 1,
+                            transition: 'color 0.2s, border-color 0.2s',
                           }}>
-                            <div style={{ ...mono, color: colors.textFaint, marginBottom: spacing.xs }}>
-                              {dim.replace(/_/g, ' ')}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                              <div style={{
-                                flex: 1, height: 3, background: colors.borderSubtle,
-                                borderRadius: 2, overflow: 'hidden',
-                              }}>
-                                <div style={{
-                                  width: `${score * 10}%`, height: '100%',
-                                  borderRadius: 2, background: col.text,
-                                  transition: 'width 0.8s ease',
-                                }} />
-                              </div>
-                              <span style={{ ...mono, color: col.text, width: 16, textAlign: 'right' }}>
-                                {score}
-                              </span>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.md }}>
-                      <ScoreRing score={judgeResult.overall} size={48} />
-                      <p style={{
-                        ...serif, color: colors.textDim,
-                        fontSize: font.md, lineHeight: 1.6, margin: 0,
-                      }}>
-                        {judgeResult.summary}
-                      </p>
-                    </div>
-                    <div data-pdf-hide style={{ marginTop: spacing.lg, borderTop: `1px solid ${colors.border}`, paddingTop: spacing.lg }}>
-                      <button onClick={handleShare} style={{
-                        padding: `8px 20px`,
-                        background: 'transparent',
-                        color: shareStatus === 'copied' ? colors.success : colors.textFaint,
-                        border: `1px solid ${shareStatus === 'copied' ? colors.success : colors.borderSubtle}`,
-                        borderRadius: radius.md,
-                        fontSize: font.sm,
-                        cursor: 'pointer',
-                        fontFamily: "'JetBrains Mono', monospace",
-                        letterSpacing: 1,
-                        transition: 'color 0.2s, border-color 0.2s',
-                      }}>
-                        {shareStatus === 'copied' ? '✓ COPIED TO CLIPBOARD' : shareStatus === 'failed' ? 'COPY FAILED' : '📋 SHARE SCORE'}
-                      </button>
-                    </div>
+                            {shareStatus === 'copied' ? '✓ COPIED TO CLIPBOARD' : shareStatus === 'failed' ? 'COPY FAILED' : '📋 SHARE SCORE'}
+                          </button>
+                        </div>
+                      )}
+                    />
                   </div>
                 )}
 
@@ -1109,9 +1218,40 @@ export default function App() {
                   </div>
                 ) : report ? (
                   <>
-                    {/* Page 1: Scorecard context, idea, verdict, strengths, weaknesses */}
+                    {/*
+                      PDF after cover: p2 Idea as Debated + Score Card; p3 Strengths/Weaknesses;
+                      p4+ Debate breakdown (2 turns/page); last Final Insights and Recommendations.
+                      PdfExportSectionHeading is hidden on screen; exportToPDF shows it for capture.
+                    */}
                     <div style={{ ...card, marginBottom: spacing.lg }}>
-
+                      <PdfExportSectionHeading>Idea as Debated and Score Card</PdfExportSectionHeading>
+                      {judgeResult && (
+                        <div style={{
+                          marginBottom: (report.idea_summary || report.verdict) ? spacing.xl : 0,
+                        }}>
+                          <EndedJudgeScorecard
+                            judgeResult={judgeResult}
+                            shareFooter={(
+                              <div data-pdf-hide style={{ marginTop: spacing.lg, borderTop: `1px solid ${colors.border}`, paddingTop: spacing.lg }}>
+                                <button onClick={handleShare} style={{
+                                  padding: `8px 20px`,
+                                  background: 'transparent',
+                                  color: shareStatus === 'copied' ? colors.success : colors.textFaint,
+                                  border: `1px solid ${shareStatus === 'copied' ? colors.success : colors.borderSubtle}`,
+                                  borderRadius: radius.md,
+                                  fontSize: font.sm,
+                                  cursor: 'pointer',
+                                  fontFamily: "'JetBrains Mono', monospace",
+                                  letterSpacing: 1,
+                                  transition: 'color 0.2s, border-color 0.2s',
+                                }}>
+                                  {shareStatus === 'copied' ? '✓ COPIED TO CLIPBOARD' : shareStatus === 'failed' ? 'COPY FAILED' : '📋 SHARE SCORE'}
+                                </button>
+                              </div>
+                            )}
+                          />
+                        </div>
+                      )}
                       {report.idea_summary && (
                         <div style={{
                           background: colors.bgDeep,
@@ -1131,14 +1271,17 @@ export default function App() {
 
                       <p style={{
                         color: colors.textSecondary, fontSize: font.lg,
-                        lineHeight: 1.5, marginBottom: spacing.xl
+                        lineHeight: 1.5, margin: 0,
                       }}>
                         {report.verdict}
                       </p>
+                    </div>
 
+                    <div data-pdf-page-break style={{ ...card, marginBottom: spacing.lg }}>
+                      <PdfExportSectionHeading>Strengths and Weaknesses</PdfExportSectionHeading>
                       <div style={{ marginBottom: spacing.lg }}>
                         <SectionLabel color={colors.success}>Strengths</SectionLabel>
-                        {report.strengths.map((s, i) => (
+                        {(report.strengths || []).map((s, i) => (
                           <div key={i} style={{
                             display: 'flex', gap: spacing.sm,
                             alignItems: 'flex-start', marginBottom: spacing.sm,
@@ -1153,7 +1296,7 @@ export default function App() {
 
                       <div>
                         <SectionLabel color={colors.accent}>Weaknesses</SectionLabel>
-                        {report.weaknesses.map((w, i) => (
+                        {(report.weaknesses || []).map((w, i) => (
                           <div key={i} style={{
                             display: 'flex', gap: spacing.sm,
                             alignItems: 'flex-start', marginBottom: spacing.sm,
@@ -1167,55 +1310,27 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Page 2: Debate breakdown, best moment, biggest gap, next steps */}
-                    <div style={{ ...card }} data-pdf-page-break>
-
-                      {report.claim_events?.length > 0 && (
-                        <div style={{ marginBottom: spacing.lg }}>
-                          <SectionLabel>Debate Breakdown</SectionLabel>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                            {report.claim_events.map((c, i) => {
-                              const col = classificationColor(c.classification)
-                              return (
-                                <div key={i} style={{
-                                  borderLeft: `3px solid ${col.border}`,
-                                  padding: `${spacing.md}px ${spacing.md}px`,
-                                  borderBottom: i < report.claim_events.length - 1 ? `1px solid ${colors.border}` : 'none',
-                                }}>
-                                  <div style={{
-                                    display: 'flex', alignItems: 'center', gap: spacing.sm,
-                                    marginBottom: spacing.xs,
-                                  }}>
-                                    <span style={{ ...mono, fontSize: font.xs, fontWeight: 700, color: col.text }}>
-                                      {c.classification}
-                                    </span>
-                                    <span style={{ ...mono, fontSize: font.xs, color: colors.textDim }}>
-                                      {c.strength}/10
-                                    </span>
-                                  </div>
-                                  <p style={{
-                                    ...serif, margin: 0, fontSize: font.sm,
-                                    lineHeight: 1.5, color: colors.textMuted,
-                                  }}>
-                                    {c.summary}
-                                  </p>
-                                  {c.suggested_argument && (
-                                    <p style={{
-                                      ...serif, margin: `${spacing.xs}px 0 0`,
-                                      fontSize: font.sm, lineHeight: 1.5,
-                                      color: colors.textDim, fontStyle: 'italic',
-                                    }}>
-                                      {c.suggested_argument}
-                                    </p>
-                                  )}
-                                  <JudgePanelRationales judgeScores={c.judge_scores} />
-                                </div>
-                              )
-                            })}
-                          </div>
+                    {chunkClaimEventsPairs(report.claim_events).map((pair, pi) => (
+                      <div
+                        key={pi}
+                        data-pdf-page-break
+                        style={{ ...card, marginBottom: spacing.lg }}
+                      >
+                        <PdfExportSectionHeading>Debate breakdown</PdfExportSectionHeading>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                          {pair.map((c, idx) => (
+                            <ReportClaimEventRow
+                              key={pi * 2 + idx}
+                              c={c}
+                              isLastInSection={idx === pair.length - 1}
+                            />
+                          ))}
                         </div>
-                      )}
+                      </div>
+                    ))}
 
+                    <div data-pdf-page-break style={{ ...card }}>
+                      <PdfExportSectionHeading>Final Insights and Recommendations</PdfExportSectionHeading>
                       <div style={{
                         display: 'grid', gridTemplateColumns: '1fr 1fr',
                         gap: spacing.md, marginBottom: spacing.lg,
