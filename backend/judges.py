@@ -113,7 +113,7 @@ async def run_live_judge_update(
     )
 
     async def _score_one(name: str, client: OpenAIClient):
-        result = await client.generate(prompt, JudgeTurnScore, temperature=0.3, max_tokens=1024)
+        result = await client.generate(prompt, JudgeTurnScore, temperature=0.3, max_completion_tokens=1024)
         return (name, result)
 
     try:
@@ -160,7 +160,7 @@ async def run_judge_panel(
     )
 
     async def _verdict_one(name: str, client: OpenAIClient):
-        result = await client.generate(prompt, JudgeVerdict, temperature=0.2, max_tokens=4000)
+        result = await client.generate(prompt, JudgeVerdict, temperature=0.2, max_completion_tokens=4000)
         verdict = result.model_dump()
         verdict["judge_name"] = name
         if verdict.get("overall") is None and verdict.get("scores"):

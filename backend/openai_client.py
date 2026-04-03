@@ -19,7 +19,7 @@ class OpenAIClient:
         self.model = model
         self._client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    async def generate(self, prompt: str, response_model, temperature: float = 0.3, max_tokens: int = 4000, timeout: float = 30.0):
+    async def generate(self, prompt: str, response_model, temperature: float = 0.3, max_completion_tokens: int = 4000, timeout: float = 30.0):
         """Send a structured-output request and return a validated Pydantic instance."""
         response = await asyncio.wait_for(
             self._client.beta.chat.completions.parse(
@@ -30,7 +30,7 @@ class OpenAIClient:
                 ],
                 response_format=response_model,
                 temperature=temperature,
-                max_tokens=max_tokens,
+                max_completion_tokens=max_completion_tokens,
             ),
             timeout=timeout,
         )

@@ -90,7 +90,7 @@ Generate a structured debrief report.
 
     try:
         report = await asyncio.wait_for(
-            _report_client.generate(prompt, ReportResult, temperature=0.3, max_tokens=4000),
+            _report_client.generate(prompt, ReportResult, temperature=0.3, max_completion_tokens=4000),
             timeout=30.0,
         )
         return report.model_dump()
