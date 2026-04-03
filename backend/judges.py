@@ -175,6 +175,8 @@ FULL TRANSCRIPT:
 Score the FOUNDER (not the AI) across the five dimensions. If the transcript contains fewer than 2 substantive exchanges, return all scores as 0 and set summary to "Insufficient debate content to evaluate."
 
 Compute overall as the average of the five scores (1 decimal). Set winner to "founder" if overall >= 6, "agent" if < 6.
+
+Your written summary MUST reflect your distinct MBTI VC persona from your system instructions—not a generic investor voice. Let your type's priorities shift emphasis across dimensions (e.g. ESTP weighs execution_risk and market-facing proof; INTJ weighs competitive_awareness and thesis depth; INFJ weighs whether mission and model align for the people affected).
 """
 
 
