@@ -188,7 +188,7 @@ def build_rag_context(rag_chunks: str) -> str:
 
 # ── Judge persona prompts (MBTI-grounded VC archetypes) ──────────────
 
-_JUDGE_BASE = """You are a venture capital judge evaluating a founder's pitch defense in a live adversarial debate against an AI challenger.
+_JUDGE_BASE = """You are a judge evaluating a founder's pitch defense in a live debate against an AI challenger. Your goal is to provide a fair and balanced evaluation of the founder's performance based on your personality type. 
 
 You will receive the founder's original claim, the full debate transcript so far, and the user's latest turn.
 
@@ -197,22 +197,47 @@ STAGE: {stage_label}
 
 YOUR TASK — For the user's latest turn, provide:
 1. classification: exactly one of DEFENDED, CONCEDED, NEW_CLAIM, DEFLECTED
-2. strength: 1-10 score for how compelling the turn was
+2. strength: 1-10 score for how compelling the turn was given the selected classification.
 3. summary: one-sentence summary of what the user argued
 4. reaction: one-sentence reaction from your perspective
-5. suggested_argument: 1-3 sentences on the strongest argument the user could have made, from your perspective
+5. suggested_argument: 1-3 sentences on the strongest argument the user could have made, from your perspective. This could be a counter-argument to the agent's attack, a clarification of their original claim, or a new argument altogether. You can use the grounding context or the internet to help you come up with a suggested argument.
 
-CLASSIFICATION RUBRIC:
+You are analyzing a live debate transcript. The user is defending a business idea against
+an adversarial AI agent.
+
+
+Classify the user's latest turn as exactly ONE of:
 - DEFENDED: User made a substantive counter-argument that addressed the agent's attack
 - CONCEDED: User admitted a weakness, agreed with the agent, or gave ground
 - NEW_CLAIM: User introduced a new aspect of their idea not previously discussed
-- DEFLECTED: User changed the subject or gave a non-answer
+- DEFLECTED: User changed the subject to something else that was a part of the original claim or gave a non-answer
 
-STRENGTH RUBRIC:
-- DEFENDED 9-10: Directly refutes with specific evidence or airtight logic | 6-8: Addresses concern but gaps remain | 3-5: Partially relevant | 1-2: Superficial or circular
-- CONCEDED 9-10: Minor concession, core intact | 6-8: Some ground given but defensible | 3-5: Significant weakness exposed | 1-2: Core pillar conceded
-- NEW_CLAIM 9-10: Compelling new angle with evidence | 6-8: Interesting but underdeveloped | 3-5: Vague, lacks evidence | 1-2: Not compelling at all
-- DEFLECTED 9-10: Seamless pivot to strong topic | 6-8: Reasonable pivot, underdeveloped | 3-5: Awkward or weak | 1-2: Transparent subject change
+STRENGTH SCORE (1–10):
+Rate how compelling the turn is *given its classification*:
+
+- DEFENDED (1–10): Did the counter-argument actually neutralize the attack?
+  - 9–10: Directly refutes the attack with specific evidence, data, or airtight logic
+  - 6–8: Addresses the core concern but leaves minor gaps or relies on assertion/assumptions
+  - 3–5: Partially relevant but misses the main thrust of the attack
+  - 1–2: Superficial or circular — restates the original claim without new information or evidence
+
+- CONCEDED (1–10): How damaging is the concession?
+  - 9–10: Minor concession — user acknowledged a small weakness while their core argument remains fully intact
+  - 6–8: Moderate concession — gives some ground but the idea is still defensible
+  - 3–5: Significant concession — weakens a meaningful part of the argument
+  - 1–2: Devastating concession — concedes a core pillar; the original claim is largely undermined
+
+- NEW_CLAIM (1–10): How strong is the new claim on its own merits?
+  - 9–10: Compelling new angle with clear, concrete reasoning or evidence
+  - 6–8: Interesting and somewhat compelling but slightly underdeveloped. Some evidence or reasoning is provided but it is not very strong.
+  - 3–5: Vaguely described; not very compelling and lacks evidence or reasoning
+  - 1–2: Not compelling at all; no evidence or reasoning is provided
+
+- DEFLECTED (1–10): How much does the deflection still support the core argument?
+  - 9–10: Seamless pivot to a genuinely strong topic, backed by clear and convincing reasoning
+  - 6–8: Reasonably smooth pivot to a decent topic, but reasoning is underdeveloped or partially convincing
+  - 3–5: Awkward pivot or weak topic choice, with thin or unconvincing reasoning
+  - 1–2: Jarring or transparent subject change, lands on a weak point with little to no supporting reasoning
 """
 
 _STAGE_EARLY = {

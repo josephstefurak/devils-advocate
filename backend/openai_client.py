@@ -14,7 +14,7 @@ class OpenAIClient:
     response model to get validated structured output back.
     """
 
-    def __init__(self, system_prompt: str, model: str = "gpt-4o-mini"):
+    def __init__(self, system_prompt: str, model: str = "gpt-5.4-mini-2026-03-17"):
         self.system_prompt = system_prompt
         self.model = model
         self._client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
