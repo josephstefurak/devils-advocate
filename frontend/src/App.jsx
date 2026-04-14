@@ -1071,7 +1071,7 @@ export default function App() {
                   </span>
                   <div>
                     <p style={{ margin: 0, ...mono, color: consentGiven ? colors.success : colors.textMuted }}>
-                      Share session data for research
+                      {consentGiven ? 'SHARING session data for research' : 'NOT sharing session data for research'}
                     </p>
                     <p style={{
                       margin: '3px 0 0', fontSize: font.xs,
