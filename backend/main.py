@@ -69,6 +69,7 @@ app.add_middleware(CORSMiddleware,
 # { socket_id: { gemini: GeminiLiveClient, state: SessionState, judges: dict[str, OpenAIClient] } }
 sessions = {}
 last_retrieval = {}
+missing_session_chunk_notified = set()
 
 
 def finalize_session_logger(session, reason: str):
@@ -113,6 +114,7 @@ async def disconnect(sid, reason=None):
     print(f"Client disconnected: {sid}, reason: {reason}")
     limiter.clear_sid(sid)
     last_retrieval.pop(sid, None)
+    missing_session_chunk_notified.discard(sid)
     session = sessions.pop(sid, None)
     if session:
         cancel_session_timeout(session)
@@ -356,7 +358,14 @@ async def start_session(sid, data):
         )
 
         
-        await sio.emit('session_ready', {'sessionId': state.session_id}, to=sid)
+        await sio.emit(
+            'session_ready',
+            {
+                'sessionId': state.session_id,
+                'maxDurationSeconds': MAX_SESSION_DURATION,
+            },
+            to=sid,
+        )
     finally:
         if document_paths and sid not in sessions:
             print(f"[start_session] Setup failed for {sid}; cleaning up uploaded files for {uid}")
@@ -367,7 +376,9 @@ async def start_session(sid, data):
 @sio.event
 async def audio_chunk(sid, data):
     if sid not in sessions:
-        print(f"Dropping chunk — {sid} not in sessions")  # ← add
+        if sid not in missing_session_chunk_notified:
+            print(f"Dropping chunk — {sid} not in sessions")
+            missing_session_chunk_notified.add(sid)
         return
     
     if not limiter.check_audio_chunk(sid):

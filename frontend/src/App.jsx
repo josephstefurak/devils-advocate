@@ -329,7 +329,7 @@ function GhostBtn({ onClick, children, color = colors.textFaint, borderColor, st
     </button>
   )
 }
-function HoldToEndButton({ onConfirm }) {
+function HoldToEndButton({ onConfirm, disabled = false, forcedEnding = false }) {
   const [holding, setHolding] = useState(false)
   const [progress, setProgress] = useState(0)
   const animFrameRef = useRef(null)
@@ -337,6 +337,7 @@ function HoldToEndButton({ onConfirm }) {
   const HOLD_DURATION = 1500
 
   function startHold() {
+    if (disabled || forcedEnding) return
     setHolding(true)
     startTimeRef.current = Date.now()
 
@@ -356,12 +357,15 @@ function HoldToEndButton({ onConfirm }) {
   }
 
   function cancelHold() {
+    if (forcedEnding) return
     setHolding(false)
     setProgress(0)
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
   }
 
   const bars = 12
+  const isEnding = forcedEnding || holding
+  const visualProgress = forcedEnding ? 1 : progress
   return (
     <button
       onMouseDown={startHold}
@@ -372,24 +376,26 @@ function HoldToEndButton({ onConfirm }) {
       style={{
         display: 'flex', alignItems: 'center', gap: spacing.sm,
         padding: `13px 30px`,
-        background: holding ? `${colors.accent}22` : colors.accent,
-        color: 'white', border: holding ? `1px solid ${colors.accent}` : 'none',
+        background: isEnding ? `${colors.accent}22` : colors.accent,
+        color: 'white', border: isEnding ? `1px solid ${colors.accent}` : 'none',
         borderRadius: radius.md,
         ...displayFont, fontSize: font.xl, letterSpacing: 2,
-        cursor: 'pointer',
-        boxShadow: holding ? 'none' : '0 4px 20px rgba(230,57,70,0.2)',
+        cursor: disabled || forcedEnding ? 'default' : 'pointer',
+        boxShadow: isEnding ? 'none' : '0 4px 20px rgba(230,57,70,0.2)',
         transition: 'background 0.1s ease, box-shadow 0.1s ease',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         minWidth: 200,
+        opacity: disabled && !forcedEnding ? 0.55 : 1,
       }}
+      disabled={disabled && !forcedEnding}
     >
-      {holding ? (
+      {isEnding ? (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             {Array.from({ length: bars }).map((_, i) => {
               const threshold = i / bars
-              const active = progress > threshold
+              const active = visualProgress > threshold
               const height = active ? 8 + Math.sin((i / bars) * Math.PI) * 12 : 3
               return (
                 <div key={i} style={{
@@ -410,6 +416,66 @@ function HoldToEndButton({ onConfirm }) {
         </>
       )}
     </button>
+  )
+}
+
+function formatCountdown(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0)
+  const mins = Math.floor(safeSeconds / 60)
+  const secs = safeSeconds % 60
+  return `${mins}:${String(secs).padStart(2, '0')}`
+}
+
+function DebateTimer({ secondsRemaining, durationSeconds, isEnding }) {
+  const pctRemaining = durationSeconds
+    ? Math.max(0, Math.min(1, secondsRemaining / durationSeconds))
+    : 0
+  const isWarning = secondsRemaining <= 30
+  const accentColor = isEnding ? colors.accent : isWarning ? colors.warning : colors.info
+
+  return (
+    <div style={{
+      border: `1px solid ${accentColor}55`,
+      background: `${accentColor}0f`,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+    }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: spacing.md,
+        marginBottom: spacing.sm,
+      }}>
+        <span style={{ ...mono, color: colors.textFaint }}>
+          Debate timer
+        </span>
+        <span style={{
+          ...displayFont,
+          color: accentColor,
+          fontSize: font.xxl,
+          letterSpacing: 2,
+          lineHeight: 1,
+        }}>
+          {isEnding ? 'ENDING...' : formatCountdown(secondsRemaining)}
+        </span>
+      </div>
+      <div style={{
+        height: 8,
+        borderRadius: radius.pill,
+        background: colors.bgDeep,
+        border: `1px solid ${colors.border}`,
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          height: '100%',
+          width: `${pctRemaining * 100}%`,
+          background: accentColor,
+          transition: 'width 0.25s linear, background 0.2s ease',
+        }} />
+      </div>
+    </div>
   )
 }
 
@@ -499,6 +565,7 @@ export default function App() {
   const {
     status, transcript, partials, claims, report, judgeResult,
     isAgentSpeaking, isPaused, consentGiven, sessionStatus, micVolume, reportReady, sessionId,
+    sessionDurationSeconds, sessionSecondsRemaining, isEndingSession,
     startDebate, endDebate, resetSession, togglePause,
     handleConsentToggle, exportToPDF,
   } = useDebateSession()
@@ -992,6 +1059,11 @@ export default function App() {
               )}
 
               <div style={{ marginBottom: spacing.sm }}>
+                <DebateTimer
+                  secondsRemaining={sessionSecondsRemaining}
+                  durationSeconds={sessionDurationSeconds}
+                  isEnding={isEndingSession}
+                />
                 <TurnIndicator
                   isAgentSpeaking={isAgentSpeaking}
                   isPaused={isPaused}
@@ -1150,13 +1222,21 @@ export default function App() {
               {/* Controls */}
               <div style={{ display: 'flex', gap: spacing.md, marginTop: spacing.lg }}>
                 <GhostBtn
-                  onClick={togglePause}
+                  onClick={isEndingSession ? undefined : togglePause}
                   color={isPaused ? colors.success : colors.textMuted}
                   borderColor={isPaused ? colors.success : colors.borderSubtle}
+                  style={{
+                    opacity: isEndingSession ? 0.45 : 1,
+                    pointerEvents: isEndingSession ? 'none' : 'auto',
+                  }}
                 >
                   {isPaused ? '▶ Resume' : '⏸ Pause'}
                 </GhostBtn>
-                <HoldToEndButton onConfirm={endDebate} />
+                <HoldToEndButton
+                  onConfirm={endDebate}
+                  disabled={isEndingSession}
+                  forcedEnding={isEndingSession}
+                />
               </div>
             </div>
           )}
