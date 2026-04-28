@@ -4,6 +4,8 @@ import time
 import re
 
 from dotenv import load_dotenv
+load_dotenv()
+
 import socketio
 from fastapi.encoders import jsonable_encoder
 from fastapi import FastAPI, Request
@@ -34,10 +36,8 @@ from summary import summarize_documents
 from firebase_admin import auth as fb_auth
 from voice_selector import assign_voice
 
-MAX_SESSION_DURATION = 20 * 60  # 20 minutes
+MAX_SESSION_DURATION = 3 * 60  # 3 minutes
 MIN_TURNS_FOR_REPORT = 2  # require at least 2 user and 2 agent turns to generate report
-
-load_dotenv()
 
 # ── App setup ──────────────────────────────────────────────────────
 app = FastAPI()
@@ -70,6 +70,35 @@ app.add_middleware(CORSMiddleware,
 sessions = {}
 last_retrieval = {}
 
+
+def finalize_session_logger(session, reason: str):
+    logger = session.get('logger')
+    if not logger:
+        return
+
+    consent = session.get('consent', True)
+    try:
+        logger.finalize(consent_given=consent)
+    except Exception as e:
+        print(f"Logging error ({reason} finalize): {e}")
+
+
+def cancel_session_timeout(session):
+    timeout_task = session.get('timeout_task')
+    if not timeout_task or timeout_task.done():
+        return
+    if timeout_task is asyncio.current_task():
+        return
+    timeout_task.cancel()
+
+
+async def enforce_session_time_limit(sid):
+    await asyncio.sleep(MAX_SESSION_DURATION)
+    if sid not in sessions:
+        return
+    await sio.emit('error', {'message': 'Session time limit reached.'}, to=sid)
+    await end_session(sid)
+
 # ── Socket events ──────────────────────────────────────────────────
 @sio.event
 async def connect(sid, environ):
@@ -86,6 +115,7 @@ async def disconnect(sid, reason=None):
     last_retrieval.pop(sid, None)
     session = sessions.pop(sid, None)
     if session:
+        cancel_session_timeout(session)
         try:
             rag.delete_participant(session['participant_id'])
         except Exception as e:
@@ -98,6 +128,7 @@ async def disconnect(sid, reason=None):
             await session['gemini'].close()
         except Exception as e:
             print(f"Gemini close error on disconnect: {e}")
+        finalize_session_logger(session, "disconnect")
 
 
 def strip_markdown(text: str) -> str:
@@ -314,6 +345,7 @@ async def start_session(sid, data):
             'paused': False,
             'stage': stage,
         }
+        sessions[sid]['timeout_task'] = asyncio.create_task(enforce_session_time_limit(sid))
 
         await asyncio.sleep(0.1) # slight delay to ensure client is ready for incoming messages
 
@@ -393,6 +425,9 @@ async def end_session(sid):
     if session is None:
         return
 
+    cancel_session_timeout(session)
+    last_retrieval.pop(sid, None)
+
     try:
         rag.delete_participant(session['participant_id'])
     except Exception as e:
@@ -412,7 +447,11 @@ async def end_session(sid):
 
     if state.turn_count < MIN_TURNS_FOR_REPORT:
         await sio.emit('debate_report', None, to=sid)
-        session['logger'].finalize(consent_given=session['consent'])
+        try:
+            session['logger'].log_report_status("skipped", "short_session")
+        except Exception as e:
+            print(f"Logging error (short report status): {e}")
+        finalize_session_logger(session, "short_session")
         await sio.disconnect(sid)
         return
 
@@ -442,8 +481,13 @@ async def end_session(sid):
     await sio.emit('debate_report', payload, to=sid)  # always emits — fixes spinner hang
     if report:
         session['logger'].log_report(report)
+    else:
+        try:
+            session['logger'].log_report_status("missing", "generation_failed_or_timeout")
+        except Exception as e:
+            print(f"Logging error (report status): {e}")
 
-    session['logger'].finalize(consent_given=session['consent'])
+    finalize_session_logger(session, "end_session")
     await sio.disconnect(sid)
     print(f"Session ended. Turns: {len(state.turns)}")
 

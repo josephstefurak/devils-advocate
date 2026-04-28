@@ -51,6 +51,8 @@ class SessionLogger:
             "turns": [],
             "judge_updates": [],
             "report": None,
+            "report_status": "pending",
+            "report_error": None,
             "metrics": {
                 "total_turns": 0,
                 "user_turns": 0,
@@ -123,7 +125,17 @@ class SessionLogger:
         })
 
     def log_report(self, report: dict):
-        self.ref.update({"report": report})
+        self.ref.update({
+            "report": report,
+            "report_status": "generated",
+            "report_error": None,
+        })
+
+    def log_report_status(self, status: str, reason: str | None = None):
+        self.ref.update({
+            "report_status": status,
+            "report_error": reason,
+        })
 
     def finalize(self, consent_given: bool):
         self.ref.update({

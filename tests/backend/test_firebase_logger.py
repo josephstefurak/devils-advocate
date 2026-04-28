@@ -24,24 +24,40 @@ class TestLogTurn:
         turns = store["test_session_001"]["turns"]
         assert any(t["speaker"] == "user" for t in turns)
 
-class TestLogClaimEvent:
+class TestLogJudgeUpdate:
     def test_running_avg_no_read(self, logger):
         instance, store = logger
-        instance.log_claim_event({"classification": "DEFENDED", "summary": "good", "strength": 8})
-        instance.log_claim_event({"classification": "CONCEDED", "summary": "fair", "strength": 4})
+        instance.log_judge_update({"classification": "DEFENDED", "summary": "good", "strength": 8})
+        instance.log_judge_update({"classification": "CONCEDED", "summary": "fair", "strength": 4})
         assert instance._strength_count == 2
         assert instance._strength_sum == 12
 
     def test_correct_metric_key_defended(self, logger):
         instance, store = logger
-        instance.log_claim_event({"classification": "DEFENDED", "summary": "x", "strength": 5})
+        instance.log_judge_update({"classification": "DEFENDED", "summary": "x", "strength": 5})
         metrics = store["test_session_001"].get("metrics", {})
         assert "defended_count" in str(store)  # updated via dot notation
 
     def test_correct_metric_key_new_claim(self, logger):
         instance, store = logger
         # Should not raise — new_claim maps correctly
-        instance.log_claim_event({"classification": "NEW_CLAIM", "summary": "x", "strength": 5})
+        instance.log_judge_update({"classification": "NEW_CLAIM", "summary": "x", "strength": 5})
+
+class TestLogReport:
+    def test_log_report_marks_generated(self, logger):
+        instance, store = logger
+        instance.log_report({"overall_score": 7})
+        session = store["test_session_001"]
+        assert session["report"] == {"overall_score": 7}
+        assert session["report_status"] == "generated"
+        assert session["report_error"] is None
+
+    def test_log_report_status_records_failure_reason(self, logger):
+        instance, store = logger
+        instance.log_report_status("missing", "generation_failed_or_timeout")
+        session = store["test_session_001"]
+        assert session["report_status"] == "missing"
+        assert session["report_error"] == "generation_failed_or_timeout"
 
 class TestFinalize:
     def test_deletes_doc_if_no_consent(self, logger):

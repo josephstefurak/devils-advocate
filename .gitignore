@@ -7,3 +7,4 @@ backend/venv/
 backend/__pycache__/
 .DS_Store
 firebase_key.json
+exports/
