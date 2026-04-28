@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { io } from 'socket.io-client'
 import { colors } from '../theme'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+const DEFAULT_SESSION_DURATION_SECONDS = 180
 
 const LETTER_PX = { w: 612, h: 792 }
 const PDF_TITLE_PAGE_LINK = 'https://devils-advocate-488918.web.app/'
@@ -48,6 +49,9 @@ export function useDebateSession() {
     const [micVolume, setMicVolume] = useState(0)  // 0-1 float
     const [reportReady, setReportReady] = useState(false)
     const [sessionId, setSessionId] = useState(null)
+    const [sessionDurationSeconds, setSessionDurationSeconds] = useState(DEFAULT_SESSION_DURATION_SECONDS)
+    const [sessionSecondsRemaining, setSessionSecondsRemaining] = useState(DEFAULT_SESSION_DURATION_SECONDS)
+    const [isEndingSession, setIsEndingSession] = useState(false)
 
     // ── Refs ───────────────────────────────────────────────────────
     const socketRef = useRef(null)
@@ -62,6 +66,50 @@ export function useDebateSession() {
     const activeSourcesRef = useRef([])
     const micVolumeRef = useRef(0)
     const preserveIdleOnDisconnectRef = useRef(false)
+    const sessionTimerRef = useRef(null)
+    const sessionDeadlineRef = useRef(null)
+    const isEndingSessionRef = useRef(false)
+
+    useEffect(() => {
+        return () => {
+            clearSessionTimer()
+        }
+    }, [])
+
+    function clearSessionTimer() {
+        if (sessionTimerRef.current) {
+            clearInterval(sessionTimerRef.current)
+            sessionTimerRef.current = null
+        }
+        sessionDeadlineRef.current = null
+    }
+
+    function beginEndingSession() {
+        isEndingSessionRef.current = true
+        setIsEndingSession(true)
+    }
+
+    function startSessionTimer(durationSeconds = DEFAULT_SESSION_DURATION_SECONDS) {
+        const duration = Number(durationSeconds) || DEFAULT_SESSION_DURATION_SECONDS
+        clearSessionTimer()
+        setSessionDurationSeconds(duration)
+        setSessionSecondsRemaining(duration)
+        sessionDeadlineRef.current = Date.now() + duration * 1000
+
+        sessionTimerRef.current = setInterval(() => {
+            const remaining = Math.max(
+                0,
+                Math.ceil((sessionDeadlineRef.current - Date.now()) / 1000)
+            )
+            setSessionSecondsRemaining(remaining)
+            if (remaining <= 0) {
+                clearSessionTimer()
+                if (!isEndingSessionRef.current) {
+                    endDebate()
+                }
+            }
+        }, 250)
+    }
 
     function resetLiveState() {
         micStartedRef.current = false
@@ -133,6 +181,7 @@ export function useDebateSession() {
         socketRef.current.on('session_ready', (data) => {
             setSessionId(data?.sessionId || null)
             setStatus('debating')
+            startSessionTimer(data?.maxDurationSeconds)
             if (!micStartedRef.current) {
                 micStartedRef.current = true
                 startMicCapture()
@@ -144,6 +193,7 @@ export function useDebateSession() {
                 preserveIdleOnDisconnectRef.current = false
                 return  // ← bail before resetLiveState
             }
+            clearSessionTimer()
             resetLiveState()
             setStatus('ended')
         })
@@ -152,6 +202,9 @@ export function useDebateSession() {
             setReport(data)  // null is fine, UI handles it
             setReportReady(true)
             setStatus('ended')
+            clearSessionTimer()
+            isEndingSessionRef.current = false
+            setIsEndingSession(false)
             resetLiveState()
         })
 
@@ -161,6 +214,13 @@ export function useDebateSession() {
 
         socketRef.current.on('error', ({ message }) => {
             console.error('Server error:', message)
+            if (message === 'Session time limit reached.') {
+                beginEndingSession()
+                clearSessionTimer()
+                setSessionSecondsRemaining(0)
+                resetLiveState()
+                return
+            }
             alert(message)
         })
 
@@ -185,6 +245,10 @@ export function useDebateSession() {
         setReportReady(false)
         setConsentGiven(true)
         setJudgeResult(null)
+        setSessionDurationSeconds(DEFAULT_SESSION_DURATION_SECONDS)
+        setSessionSecondsRemaining(DEFAULT_SESSION_DURATION_SECONDS)
+        isEndingSessionRef.current = false
+        setIsEndingSession(false)
         micStartedRef.current = false
         activeSourcesRef.current = []
         isPausedRef.current = false
@@ -202,12 +266,16 @@ export function useDebateSession() {
     }
 
     function endDebate() {
-        setStatus('ended')
+        if (isEndingSessionRef.current) return
+        beginEndingSession()
+        clearSessionTimer()
+        setSessionSecondsRemaining(0)
         resetLiveState()
         socketRef.current?.emit('end_session')
     }
 
     function resetSession() {
+        clearSessionTimer()
         resetLiveState()
         disconnectSocket({ preserveIdle: true })
         setStatus('idle')
@@ -220,6 +288,10 @@ export function useDebateSession() {
         setSessionStatus('')
         setConsentGiven(true)
         setSessionId(null)
+        setSessionDurationSeconds(DEFAULT_SESSION_DURATION_SECONDS)
+        setSessionSecondsRemaining(DEFAULT_SESSION_DURATION_SECONDS)
+        isEndingSessionRef.current = false
+        setIsEndingSession(false)
     }
 
     // ── Pause / Consent ────────────────────────────────────────────
@@ -548,6 +620,9 @@ export function useDebateSession() {
         micVolume,
         reportReady,
         sessionId,
+        sessionDurationSeconds,
+        sessionSecondsRemaining,
+        isEndingSession,
         // actions
         startDebate,
         endDebate,

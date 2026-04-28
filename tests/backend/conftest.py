@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import os
 os.environ.setdefault("GEMINI_API_KEY", "test-fake-key-12345")
+os.environ.setdefault("OPENAI_API_KEY", "test-fake-key-12345")
 os.environ.setdefault("FIREBASE_KEY_PATH", "/tmp/fake_firebase_key.json")
 
 # ── Gemini mock ────────────────────────────────────────────────────
