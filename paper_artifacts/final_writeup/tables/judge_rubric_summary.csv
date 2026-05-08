@@ -1,0 +1,7 @@
+dimension,n,median,iqr,min,max
+consensus_overall,3,3.2,1.2,2.0,3.2
+problem_clarity,3,5.0,3.6,2.8,6.4
+market_logic,3,2.8,1.0,2.0,3.0
+execution_risk,3,1.8,1.6,1.4,3.0
+competitive_awareness,3,1.6,0.4,1.6,2.0
+internal_coherence,3,3.0,1.6,2.0,3.6

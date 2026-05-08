@@ -1,0 +1,11 @@
+participant_or_row,session_id_redacted,created_at,feedback_tier_reasons,report_backed_reasons
+P1,session_1,2026-04-02T20:11:33.309350+00:00,included,included
+excluded,session_2,2026-04-14T14:51:02.265227+00:00,researcher_or_test_feedback,researcher_or_test_feedback
+P2,session_3,2026-04-19T23:28:34.387983+00:00,included,missing_ended_at; missing_report; report_not_available_to_participant
+P3,session_4,2026-04-22T16:19:31.405608+00:00,included,included
+P4,session_5,2026-04-22T16:50:31.794166+00:00,included,included
+P5,session_6,2026-04-23T14:29:29.029825+00:00,included,missing_ended_at; missing_report; report_not_available_to_participant
+P6,session_7,2026-04-24T04:17:02.141494+00:00,included,missing_ended_at; missing_report; report_not_available_to_participant
+P7,session_8,2026-04-26T20:53:34.907214+00:00,included,missing_ended_at; missing_report; report_not_available_to_participant
+P8,session_9,2026-04-28T19:09:07.425407+00:00,included,missing_ended_at; missing_report; report_not_available_to_participant
+P9,session_10,2026-04-28T22:34:37.260085+00:00,included,missing_ended_at; missing_report; report_not_available_to_participant

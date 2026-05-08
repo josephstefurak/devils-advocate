@@ -1,0 +1,11 @@
+metric,count,notes
+sessions_started_exported,253,Fresh shared Firestore export.
+consented_sessions,250,No-consent sessions may be deleted at finalization.
+sessions_ending_cleanly,99,Any finalized session in export.
+sessions_with_generated_report,62,"Any session with report object, regardless of feedback."
+feedback_submissions_raw,10,Before removing researcher/test response.
+valid_research_feedback_submissions,9,N for survey analysis.
+excluded_researcher_test_feedback,1,Open text contained test marker.
+valid_report_backed_sessions,3,n for report-backed analysis.
+report_backed_with_five_judge_verdicts,2,One older report-backed record only has consensus-style result.
+non_test_claim_sessions,141,Claim heuristic only.

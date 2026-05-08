@@ -1,0 +1,31 @@
+{
+  "total_sessions": 253,
+  "valid_feedback_N": 9,
+  "report_backed_n": 3,
+  "report_backed_with_five_judges": 2,
+  "turn_classification_updates_available": 7,
+  "figures": [
+    "judge_scores_report_subset.png",
+    "judge_scores_report_subset.svg",
+    "most_valuable_counts.png",
+    "most_valuable_counts.svg",
+    "pilot_survey_constructs.png",
+    "pilot_survey_constructs.svg",
+    "turn_classification_counts.png",
+    "turn_classification_counts.svg"
+  ],
+  "tables": [
+    "inclusion_counts.csv",
+    "inclusion_exclusion_audit.csv",
+    "judge_rubric_summary.csv",
+    "likert_top2_counts.csv",
+    "most_valuable_counts.csv",
+    "open_text_themes.csv",
+    "per_judge_mean_overall.csv",
+    "survey_constructs.csv",
+    "transcript_challenge_coding.csv",
+    "transcript_coding_summary.csv",
+    "turn_classification_counts.csv",
+    "ux_hurdle_counts.csv"
+  ]
+}

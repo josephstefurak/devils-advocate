@@ -1,0 +1,12 @@
+participant_id,turn_number,challenge_paraphrase_redacted,relevant_to_pitch,logical_soundness,evidence_type,factual_risk,user_response_type,productive_moment,notes_redacted
+P1,2,Pressed two-sided marketplace liquidity/critical-mass assumptions.,yes,strong,Google Search claim,possible issue,deflected,yes,Evidence was plausible but not externally verified here.
+P1,4,Challenged supplier participation and behavior-change assumptions.,yes,acceptable,general startup knowledge,no obvious issue,deflected,yes,Moved the user toward adoption incentives.
+P1,6,Questioned analogy to more stable marketplace categories and free-adoption logic.,yes,acceptable,user-provided material,possible issue,deflected,yes,Some challenge text was truncated in the transcript.
+P1,9,Pressed localized demand generation and acquisition-cost feasibility.,yes,strong,Google Search claim,possible issue,new claim,yes,User responded with a partnership/distribution move.
+P3,2,Challenged incumbent/platform absorption risk for an AI workflow concept.,yes,strong,general startup knowledge,no obvious issue,deflected,yes,Strong relevance to defensibility.
+P3,4,Continued incumbent-risk challenge after a non-substantive response.,yes,acceptable,session transcript,no obvious issue,no substantive response,no,Agent turn was partially truncated.
+P3,6,Questioned whether the target customer pain was must-have versus nice-to-have.,yes,strong,general startup knowledge,no obvious issue,deflected,yes,Directly addressed adoption and pain intensity.
+P3,9,Reframed the answer as insufficient against platform/incumbent risk.,yes,acceptable,session transcript,no obvious issue,no substantive response,yes,"Repeated a prior critique, but still relevant."
+P4,2,Questioned retention for a low-frequency consumer utility.,yes,strong,Google Search claim,possible issue,deflected,yes,Evidence claim not externally verified in this audit.
+P4,4,Argued one-time setup undermines recurring business-model strength.,yes,acceptable,session transcript,no obvious issue,defended,yes,User responded with a subscription model.
+P4,7,Pressed whether a passive subscription can sustain value and avoid cancellation.,yes,strong,Google Search claim,possible issue,no substantive response,yes,"Good challenge, but no later response captured."
