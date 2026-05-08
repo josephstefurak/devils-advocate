@@ -8,3 +8,4 @@ backend/__pycache__/
 .DS_Store
 firebase_key.json
 exports/
+paper_artifacts/final_writeup/raw_export/
